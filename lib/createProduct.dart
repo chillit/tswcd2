@@ -63,10 +63,16 @@ class _resumeState extends State<resume> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
 
     if (result != null) {
-      setState(() {
-        fileBytes = result.files.first.bytes; // Сохраняем байты файла
-        fileName = result.files.first.name; // Сохраняем имя файла
-      });
+      try {
+        setState(() {
+          fileBytes = result.files.first.bytes;
+          fileName = result.files.first.name;
+        });
+      } catch (e) {
+        print('Error processing file picker result: $e');
+      }
+    } else {
+      print('File picker result is null');
     }
   }
   Future<void> _selectDate(BuildContext context) async {
@@ -89,7 +95,7 @@ class _resumeState extends State<resume> {
 
     try {
       // Сначала загружаем файл в Firebase Storage и получаем URL изображения
-      final ref = FirebaseStorage.instance.ref('products/${FirebaseAuth.instance.currentUser!.uid}/$id/$fileName');
+      final ref = FirebaseStorage.instance.ref('products/${FirebaseAuth.instance.currentUser!.uid}/$id/image');
       final result = await ref.putData(fileData);
       final imageUrl = await result.ref.getDownloadURL();
 
@@ -144,6 +150,10 @@ class _resumeState extends State<resume> {
                           SizedBox(width: 10,),
                           IconButton(
                             onPressed: (){
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => resume()),
+                              );
                             },
                             icon: Icon(Icons.history, color: Colors.black,),
 
