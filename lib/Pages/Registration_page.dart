@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:tswcd/Pages/business_registration.dart';
 import 'package:tswcd/Pages/eventsList.dart';
+import 'package:tswcd/createProduct.dart';
 import 'package:tswcd/main.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -99,7 +100,7 @@ class _MyHomePageState extends State<Registration> {
       // Navigate to the next page here
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => EventList(), // Replace with your next page
+          builder: (context) => resume(), // Replace with your next page
         ),
       );
 

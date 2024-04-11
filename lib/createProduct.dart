@@ -21,14 +21,7 @@ class _resumeState extends State<resume> {
   final user = FirebaseAuth.instance.currentUser!;
 
 
-  // text editing controllers
-  final busNum = TextEditingController();
 
-  final sprem = TextEditingController();
-
-  final sts = TextEditingController();
-
-  final N = TextEditingController();
 
   // sign user in method
   void signUserIn() {}
@@ -138,7 +131,6 @@ class _resumeState extends State<resume> {
                           IconButton(
                               onPressed: (){
                                 FirebaseAuth.instance.signOut();
-
                               },
                               icon: Icon(Icons.logout)),
                           SizedBox(width: 10,),
@@ -155,9 +147,19 @@ class _resumeState extends State<resume> {
                   const SizedBox(height: 0),
 
                   // logo
-                  Icon(Icons.directions_bus_rounded, size:200),
+                  Container(
+                    width: MediaQuery.of(context).size.width.clamp(0, 400),
+                    height: MediaQuery.of(context).size.width.clamp(0, 400),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(67), // Adjust the radius as per your requirement
+                      image: DecorationImage(
+                        image: AssetImage('assets/images/KupimVmeste.png'),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
 
-                  const SizedBox(height: 0),
+                  const SizedBox(height: 20),
 
                   // welcome back, you've been missed!
                   Text(
