@@ -1,6 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+
+import 'dart:typed_data'; // Для Uint8List
+import 'package:awesome_dialog/awesome_dialog.dart';
+
 import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:file/memory.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -43,14 +48,52 @@ class _resumeState extends State<resume> {
   String? selectedProductName;
   StreamController<List<UserNotification>> _controller = StreamController<List<UserNotification>>.broadcast();
   final BehaviorSubject<List<UserNotification>> userNotisSubject = BehaviorSubject();
+  bool isalter = false;
+  Product? selectedowner;
+  List<Product> products = [];
+  Stream<List<UserNotification>> getUserNotisStreamm(String uid) {
+    return _controller.stream;
+  }
+  Future<UserNotification> getUserNameByUid(String uid) async {
+    final databaseReference = FirebaseDatabase.instance.ref();
+    final snapshot = await databaseReference.child('users/$uid/name').get();
 
+    if (snapshot.exists) {
+      String name = snapshot.value as String;
+      return UserNotification(uid: uid, name: name);
+    } else {
+      return UserNotification(uid: uid, name: 'Unknown');
+    }
+  }
+  Stream<List<UserNotification>> getUserNotisStream(String userUid) async* {
+    final databaseReference = FirebaseDatabase.instance.ref();
+
+    Stream<DatabaseEvent> stream = databaseReference
+        .child('users/$userUid/notis')
+        .onValue;
+
+    await for (var event in stream) {
+      DataSnapshot snapshot = event.snapshot;
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> notis = snapshot.value as Map<dynamic,
+            dynamic>;
+        List<Future<UserNotification>> futures = [];
+
+        for (var uid in notis.keys) {
+          futures.add(getUserNameByUid(uid));
+        }
+        List<UserNotification> usersInfo = await Future.wait(futures);
+        yield usersInfo;
+      } else {
+        yield [];
+      }
+    }
+  }
   void updateUserNotisStream(String uid) {
     getUserNotisStream(uid).listen((data) {
       userNotisSubject.add(data);
     });
-  }
-  Stream<List<UserNotification>> getUserNotisStreamm(String uid) {
-    return _controller.stream;
   }
   final Map<String, List<String>> productsByCategory = {
     'Мясные продукты': ['Куриное филе', 'Говядина', 'Свинина', 'Куриные окорочка', 'Рыба', 'Креветки', 'Мидии'],
@@ -72,22 +115,6 @@ class _resumeState extends State<resume> {
     super.dispose();
   }
 
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
-
-    if (result != null) {
-      try {
-        setState(() {
-          fileBytes = result.files.first.bytes;
-          fileName = result.files.first.name;
-        });
-      } catch (e) {
-        print('Error processing file picker result: $e');
-      }
-    } else {
-      print('File picker result is null');
-    }
-  }
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       locale: const Locale("ru","RU"),
@@ -103,7 +130,7 @@ class _resumeState extends State<resume> {
     }
   }
 
-  Future<void> sendDataToDatabase(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName,int count) async {
+  Future<bool> sendDataToDatabase(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName,int count) async {
     final databaseRef = FirebaseDatabase.instance.ref();
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final productRef = databaseRef.child('products/${FirebaseAuth.instance.currentUser!.uid}/$id');
@@ -122,11 +149,40 @@ class _resumeState extends State<resume> {
         'count': count,
         "alter":""
       });
+      return true;
     } catch (e) {
       print(e);
-      return;
+      return false;
+
     }
   }
+  Future<bool> sendDataToDatabasealter(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName,int count,String owneruid) async {
+    final databaseRef = FirebaseDatabase.instance.ref();
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final productRef = databaseRef.child('products/${FirebaseAuth.instance.currentUser!.uid}/$owneruid/alter/${id}');
+
+    try {
+      final ref = FirebaseStorage.instance.ref('products/${FirebaseAuth.instance.currentUser!.uid}/$id/image');
+      final result = await ref.putData(fileData);
+      final imageUrl = await result.ref.getDownloadURL();
+      await productRef.set({
+        'name': name,
+        'category': category,
+        'comment': comment,
+        'description': description,
+        'date': date,
+        'imageUrl': imageUrl,
+        'count': count,
+        "alter":""
+      });
+      return true;
+    } catch (e) {
+      print(e);
+      return false;
+
+    }
+  }
+
 
   Future<void> isCurrentUserOwner() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -151,6 +207,7 @@ class _resumeState extends State<resume> {
     }
   }
 
+
   Future<void> _fetchUsers() async {
     final currentUser = _auth.currentUser;
     if (currentUser != null) {
@@ -174,20 +231,27 @@ class _resumeState extends State<resume> {
       print(allusers);
     }
   }
+  Future<List<UserNotification>> getUserNotisInfo(String userUid) async {
+    final databaseReference = FirebaseDatabase.instance.ref();
+    final snapshot = await databaseReference.child('users/$userUid/notis')
+        .get();
 
-  void initState() {
+    List<UserNotification> usersInfo = [];
 
-    super.initState();
-    updateUserNotisStream(user.uid);
-    _fetchUsers();
-    loadUserNotis();
-    isCurrentUserOwner();
-  }
+    if (snapshot.exists) {
+      Map<dynamic, dynamic> notis = snapshot.value as Map<dynamic, dynamic>;
 
-  Future<void> handleSubmit() async {
-    if (fileBytes != null && fileName != null) {
-      await sendDataToDatabase(selectedProductName,_categoryController.text, _comment.text, _discription.text, _dateController.text, fileBytes!, fileName!,int.parse(count.text));
+      for (var uid in notis.keys) {
+        final userSnapshot = await databaseReference.child(
+            'users/$uid/name').get();
+        if (userSnapshot.exists) {
+          String name = userSnapshot.value as String;
+          usersInfo.add(UserNotification(uid: uid, name: name));
+        }
+      }
     }
+
+    return usersInfo;
   }
   void loadUserNotis() async {
     final userUid = FirebaseAuth.instance.currentUser?.uid;
@@ -198,273 +262,490 @@ class _resumeState extends State<resume> {
       });
     }
   }
-  Future<List<UserNotification>> getUserNotisInfo(String userUid) async {
-    final databaseReference = FirebaseDatabase.instance.ref();
-    final snapshot = await databaseReference.child('users/$userUid/notis').get();
+  void initState() {
 
-    List<UserNotification> usersInfo = [];
-
-    if (snapshot.exists) {
-      Map<dynamic, dynamic> notis = snapshot.value as Map<dynamic, dynamic>;
-
-      for (var uid in notis.keys) {
-        final userSnapshot = await databaseReference.child('users/$uid/name').get();
-        if (userSnapshot.exists) {
-          String name = userSnapshot.value as String;
-          usersInfo.add(UserNotification(uid: uid, name: name));
-        }
-      }
-    }
-
-    return usersInfo;
+    super.initState();
+    updateUserNotisStream(user.uid);
+    _fetchUsers();
+    loadUserNotis();
+    isCurrentUserOwner();
+    fetchProducts();
   }
-  Future<String> getUserIdByEmail(String userEmail) async {
-    final databaseReference = FirebaseDatabase.instance.ref();
-    String userId = '';
-    final query = databaseReference.child('users').orderByChild('email').equalTo(userEmail);
-    DataSnapshot snapshot = await query.get();
+  Future<void> fetchProducts() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    DatabaseReference ref = FirebaseDatabase.instance.ref('products/$uid');
+    DatabaseEvent event = await ref.once();
 
-    if (snapshot.exists) {
-      final Map<dynamic, dynamic> users = snapshot.value as Map<dynamic, dynamic>;
-      userId = users.keys.first as String;
-    } else {
-      print("No user found for the provided email");
-    }
-
-    return userId;
-  }
-  Future<void> _addCurrentUserToSelectedUserNotis(String userEmail) async {
-    String userId = await getUserIdByEmail(userEmail);
-
-    if (userId.isNotEmpty) {
-      final databaseReference = FirebaseDatabase.instance.ref();
-      databaseReference.child('users/$userId/notis/${user.uid}').set(true).then((_) {
-        print("Current user UID added successfully to selected user's notis");
-      }).catchError((error) {
-        print("Failed to add current user UID: $error");
+    if (event.snapshot.exists) {
+      final productsData = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+      productsData.forEach((key, data) {
+        products.add(Product(name: data["name"], imageUrl: data["imageUrl"], owner: key));
       });
     }
+    print(products);
   }
-  Stream<List<UserNotification>> getUserNotisStream(String userUid) async* {
-    final databaseReference = FirebaseDatabase.instance.ref();
 
-    Stream<DatabaseEvent> stream = databaseReference.child('users/$userUid/notis').onValue;
+  Future<void> handleSubmit() async {
+    if (fileBytes != null && fileName != null) {
+      await sendDataToDatabase(
+          selectedProductName,
+          _categoryController.text,
+          _comment.text,
+          _discription.text,
+          _dateController.text,
+          fileBytes!,
+          fileName!,
+          int.parse(count.text));}}
 
-    await for (var event in stream) {
-      DataSnapshot snapshot = event.snapshot;
 
-      if (snapshot.exists) {
-        Map<dynamic, dynamic> notis = snapshot.value as Map<dynamic, dynamic>;
-        List<Future<UserNotification>> futures = [];
-
-        for (var uid in notis.keys) {
-          futures.add(getUserNameByUid(uid));
+      String? validateProduct(String? value) {
+        if (selectedProductName == null || selectedProductName!.isEmpty) {
+          return "Пожалуйста, выберите продукт";
         }
-        List<UserNotification> usersInfo = await Future.wait(futures);
-        yield usersInfo;
-      } else {
-        yield [];
+        return null;
       }
-    }
-  }
+      bool isFilePicked = false; // Добавляем флаг для отслеживания выбора файла
 
+      Future<void> _pickFile() async {
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+            type: FileType.image);
 
-  Future<UserNotification> getUserNameByUid(String uid) async {
-    final databaseReference = FirebaseDatabase.instance.ref();
-    final snapshot = await databaseReference.child('users/$uid/name').get();
+        if (result != null) {
+          try {
+            setState(() {
+              fileBytes = result.files.first.bytes;
+              fileName = result.files.first.name;
+              isFilePicked = true; // Файл выбран
+            });
+          } catch (e) {
+            print('Error processing file picker result: $e');
+          }
+        } else {
+          setState(() {
+            isFilePicked = false; // Файл не выбран
+          });
+          print('File picker result is null');
+        }
+      }
 
-    if (snapshot.exists) {
-      String name = snapshot.value as String;
-      return UserNotification(uid: uid, name: name);
+      bool isLoading = false; // Состояние для отслеживания загрузки
+  Future<void> handleSubmitAnim(BuildContext context) async {
+    if (_formKey.currentState!.validate() && isFilePicked) {
+      String? productValidationResult = validateProduct(
+          selectedProductName);
+      if (productValidationResult == null) {
+        if (fileBytes != null && fileName != null) {
+          setState(() {
+            isLoading = true; // Начинаем показ индикатора загрузки
+          });
+          try {
+            bool success = await sendDataToDatabase(
+                selectedProductName!,
+                _categoryController.text,
+                _comment.text,
+                _discription.text,
+                _dateController.text,
+                fileBytes!,
+                fileName!,
+                int.parse(count.text)
+            );
+            if (success) {
+              AwesomeDialog(
+                context: context,
+                dialogType: DialogType.success,
+                animType: AnimType.bottomSlide,
+                title: 'Успех',
+                desc: 'Товар успешно добавлен!',
+                btnOkOnPress: () {},
+              )
+                ..show();
+              _categoryController.clear();
+              _comment.clear();
+              _discription.clear();
+              _dateController.clear();
+            } else {
+              // Обработка неудачной отправки данных
+            }
+          } finally {
+            setState(() {
+              isLoading = false; // Заканчиваем показ индикатора загрузки
+            });
+          }
+        }
+      }
     } else {
-      return UserNotification(uid: uid, name: 'Unknown');
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+              'Пожалуйста, выберите файл перед добавлением товара!'))
+      );
     }
   }
-  Future<void> acceptUser(String userUid) async {
-    final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
-    if (currentUserUid == null) return;
-    final databaseReference = FirebaseDatabase.instance.ref();
-    await databaseReference.child('users/$currentUserUid/owner').set(userUid);
-    await databaseReference.child('users/${userUid}/family/${currentUserUid}').set(true);
-    await databaseReference.child('users/$currentUserUid/notis/$userUid').remove();
-  }
-  Future<void> rejectUser(String userUid) async {
-    final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
-    if (currentUserUid == null) return;
+  Future<void> handleSubmitAnimalter(BuildContext context,String owner) async {
+    if (_formKey.currentState!.validate() && isFilePicked) {
+      String? productValidationResult = validateProduct(
+          selectedProductName);
+      if (productValidationResult == null) {
+        if (fileBytes != null && fileName != null) {
+          setState(() {
+            isLoading = true; // Начинаем показ индикатора загрузки
+          });
+          try {
+            bool success = await sendDataToDatabasealter(
 
-    final databaseReference = FirebaseDatabase.instance.ref();
-
-    await databaseReference.child('users/$currentUserUid/notis/$userUid').remove();
-
-    print("User $userUid rejected");
-  }
-  Future<void> removeUserOwner(String userUid) async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final User? currentUser = auth.currentUser;
-    final databaseReference = FirebaseDatabase.instance.ref();
-    await databaseReference.child('users/$userUid/owner').set("");
-    await databaseReference.child('users/${currentUser!.uid}/family/${userUid}').remove();
-    print("User $userUid owner removed");
-  }
-  Future<String> getUserNameeByUid(String uid) async {
-    final databaseReference = FirebaseDatabase.instance.ref();
-
-    DataSnapshot snapshot = await databaseReference.child('users/$uid/name').get();
-
-    if (snapshot.exists) {
-      return snapshot.value as String;
+                selectedProductName!,
+                _categoryController.text,
+                _comment.text,
+                _discription.text,
+                _dateController.text,
+                fileBytes!,
+                fileName!,
+                int.parse(count.text),
+              owner
+            );
+            if (success) {
+              AwesomeDialog(
+                context: context,
+                dialogType: DialogType.success,
+                animType: AnimType.bottomSlide,
+                title: 'Успех',
+                desc: 'Товар успешно добавлен!',
+                btnOkOnPress: () {},
+              )
+                ..show();
+              _categoryController.clear();
+              _comment.clear();
+              _discription.clear();
+              _dateController.clear();
+            } else {
+              // Обработка неудачной отправки данных
+            }
+          } finally {
+            setState(() {
+              isLoading = false; // Заканчиваем показ индикатора загрузки
+            });
+          }
+        }
+      }
     } else {
-      return 'Имя не найдено';
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+              'Пожалуйста, выберите файл перед добавлением товара!'))
+      );
     }
   }
-  @override
-  Widget build(BuildContext context) {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final FirebaseDatabase database = FirebaseDatabase.instance;
-    final User? currentUser = auth.currentUser;
 
-    if (currentUser == null) {
-      return Center(child: Text("Пользователь не авторизован"));
-    }
-    String textedit = "";
-    Stream<DatabaseEvent> familyStream = database.ref("users/${currentUser.uid}/family").onValue;
-    List<String> allProducts = productsByCategory.values.expand((list) => list).toList();
-    return Scaffold(
+      void _filterUsers(String query) {
+        setState(() {
+          if (query.isNotEmpty) {
+            filteredUsers =
+                allusers.where((user) => user.contains(query)).toList();
+          } else {
+            filteredUsers = List.from(users);
+          }
+        });
+      }
 
-      backgroundColor: Colors.white,
+      Future<String> getUserIdByEmail(String userEmail) async {
+        final databaseReference = FirebaseDatabase.instance.ref();
+        String userId = '';
+        final query = databaseReference.child('users')
+            .orderByChild('email')
+            .equalTo(userEmail);
+        DataSnapshot snapshot = await query.get();
 
-      key: _scaffoldKey,
-      appBar: AppBar(
-        actions: [
-          Row(
-            children: [
-              Padding(
-                padding: EdgeInsets.only(left: 20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        FirebaseAuth.instance.signOut();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => Registration()),
-                        );
-                      },
-                      icon: Icon(Icons.logout),
+        if (snapshot.exists) {
+          final Map<dynamic, dynamic> users = snapshot.value as Map<
+              dynamic,
+              dynamic>;
+          userId = users.keys.first as String;
+        } else {
+          print("No user found for the provided email");
+        }
+
+        return userId;
+      }
+      Future<void> _addCurrentUserToSelectedUserNotis(String userEmail) async {
+        String userId = await getUserIdByEmail(userEmail);
+
+        if (userId.isNotEmpty) {
+          final databaseReference = FirebaseDatabase.instance.ref();
+          databaseReference.child('users/$userId/notis/${user.uid}')
+              .set(true)
+              .then((_) {
+            print(
+                "Current user UID added successfully to selected user's notis");
+          }).catchError((error) {
+            print("Failed to add current user UID: $error");
+          });
+        }
+      }
+
+
+
+      Future<void> acceptUser(String userUid) async {
+        final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
+        if (currentUserUid == null) return;
+        final databaseReference = FirebaseDatabase.instance.ref();
+        await databaseReference.child('users/$currentUserUid/owner').set(
+            userUid);
+        await databaseReference.child(
+            'users/${userUid}/family/${currentUserUid}').set(true);
+        await databaseReference.child('users/$currentUserUid/notis/$userUid')
+            .remove();
+      }
+      Future<void> rejectUser(String userUid) async {
+        final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
+        if (currentUserUid == null) return;
+
+        final databaseReference = FirebaseDatabase.instance.ref();
+
+        await databaseReference.child('users/$currentUserUid/notis/$userUid')
+            .remove();
+
+        print("User $userUid rejected");
+      }
+      Future<void> removeUserOwner(String userUid) async {
+        final FirebaseAuth auth = FirebaseAuth.instance;
+        final User? currentUser = auth.currentUser;
+        final databaseReference = FirebaseDatabase.instance.ref();
+        await databaseReference.child('users/$userUid/owner').set("");
+        await databaseReference.child(
+            'users/${currentUser!.uid}/family/${userUid}').remove();
+        print("User $userUid owner removed");
+      }
+      Future<String> getUserNameeByUid(String uid) async {
+        final databaseReference = FirebaseDatabase.instance.ref();
+
+        DataSnapshot snapshot = await databaseReference.child('users/$uid/name')
+            .get();
+
+        if (snapshot.exists) {
+          return snapshot.value as String;
+        } else {
+          return 'Имя не найдено';
+        }
+      }
+      @override
+      Widget build(BuildContext context) {
+        final FirebaseAuth auth = FirebaseAuth.instance;
+        final FirebaseDatabase database = FirebaseDatabase.instance;
+        final User? currentUser = auth.currentUser;
+
+        if (currentUser == null) {
+          return Center(child: Text("Пользователь не авторизован"));
+        }
+        String textedit = "";
+        Stream<DatabaseEvent> familyStream = database
+            .ref("users/${currentUser.uid}/family")
+            .onValue;
+        List<String> allProducts = productsByCategory.values.expand((
+            list) => list).toList();
+        return Scaffold(
+
+          backgroundColor: Colors.white,
+
+          key: _scaffoldKey,
+          appBar: AppBar(
+            actions: [
+              Row(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(left: 20),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            FirebaseAuth.instance.signOut();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => Registration()),
+                            );
+                          },
+                          icon: Icon(Icons.logout),
+                        ),
+                        SizedBox(width: 10),
+                      ],
                     ),
-                    SizedBox(width: 10),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      _fetchUsers();
+                      _scaffoldKey.currentState?.openEndDrawer();
+                      print(isowner);
+                    },
+                    icon: Icon(Icons.menu),
+                  ),
+                ],
+              )
+            ],
+          ),
+          endDrawer: isowner ? Drawer(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                DrawerHeader(
+                  child: Text('Sidebar'),
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                  ),
+                ),
+                Column(
+                  children: <Widget>[
+                    Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        textedit = textEditingValue.text;
+                        if (textEditingValue.text == '') {
+                          textedit = textEditingValue.text;
+                          return const Iterable<String>.empty();
+                        }
+                        return allusers.where((String option) {
+                          return option.toLowerCase().contains(
+                              textEditingValue.text.toLowerCase());
+                        }).toSet().toList();
+                      },
+                      onSelected: (String selection) {
+                        selectedemail = selection;
+                        textedit = selection;
+                      },
+                    ),
+                    IconButton(
+                        onPressed: () {
+                          String emailToUse = selectedemail.isEmpty
+                              ? textedit
+                              : selectedemail;
+                          if (emailToUse.isNotEmpty) {
+                            _addCurrentUserToSelectedUserNotis(emailToUse);
+                          }
+                        },
+                        icon: Icon(Icons.add)),
+                    Container(
+                      height: 400,
+                      child: StreamBuilder<DatabaseEvent>(
+                        stream: familyStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState
+                              .waiting) {
+                            return Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasError) {
+                            return Center(
+                                child: Text("Ошибка: ${snapshot.error}"));
+                          } else if (!snapshot.hasData ||
+                              snapshot.data!.snapshot.value == null) {
+                            return Center(child: Text("Данные отсутствуют"));
+                          } else {
+                            Map<dynamic, dynamic> values = snapshot.data!
+                                .snapshot.value as Map<dynamic, dynamic>;
+                            List<String> uids = values.keys.cast<String>()
+                                .toList();
+                            return ListView.builder(
+                              itemCount: uids.length,
+                              itemBuilder: (context, index) {
+                                return FutureBuilder<String>(
+                                  future: getUserNameeByUid(uids[index]),
+                                  builder: (BuildContext context,
+                                      AsyncSnapshot<String> snapshot) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return ListTile(
+                                        title: Text("Загрузка..."),
+                                      );
+                                    } else if (snapshot.hasError) {
+                                      return ListTile(
+                                        title: Text(
+                                            "Ошибка: ${snapshot.error}"),
+                                      );
+                                    } else {
+                                      return ListTile(
+                                        title: Text(snapshot.data ??
+                                            "Никнейм не найден"),
+                                        onTap: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (BuildContext context) {
+                                              return AlertDialog(
+                                                title: Text(
+                                                    'Удалить пользователя?'),
+                                                content: Text(
+                                                    'Вы уверены, что хотите удалить этого пользователя?'),
+                                                actions: <Widget>[
+                                                  TextButton(
+                                                    child: Text('Отмена'),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  ),
+                                                  TextButton(
+                                                    child: Text('Удалить'),
+                                                    onPressed: () {
+                                                      removeUserOwner(
+                                                          uids[index]).then((
+                                                          _) =>
+                                                          Navigator.of(context)
+                                                              .pop());
+                                                    },
+                                                  ),
+                                                ],
+                                              );
+                                            },);
+                                        },
+                                      );
+                                    }
+                                  },
+                                );
+                              },
+                            );
+                          }
+                        },
+                      ),
+                    ),
+
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: () {
-                  _fetchUsers();
-                  _scaffoldKey.currentState?.openEndDrawer();
-                  print(isowner);
-                },
-                icon: Icon(Icons.menu),
-              ),
-            ],
-          )
-        ],
-      ),
-      endDrawer: isowner?Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              child: Text('Sidebar'),
-              decoration: BoxDecoration(
-                color: Colors.blue,
-              ),
-            ),
-            Column(
-              children: <Widget>[
-                Autocomplete<String>(
-                  optionsBuilder: (TextEditingValue textEditingValue) {
-                    textedit = textEditingValue.text;
-                    if (textEditingValue.text == '') {
-                      textedit = textEditingValue.text;
-                      return const Iterable<String>.empty();
 
-                    }
-                    return allusers.where((String option) {
-                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                    }).toSet().toList();
-                  },
-                  onSelected: (String selection) {
-                    selectedemail = selection;
-                    textedit = selection;
-                  },
-                ),
-                IconButton(
-                    onPressed: (){
-                      String emailToUse = selectedemail.isEmpty ? textedit : selectedemail;
-                      if(emailToUse.isNotEmpty) {
-                        _addCurrentUserToSelectedUserNotis(emailToUse);
-                      }
-                    },
-                    icon: Icon(Icons.add)),
+              ],
+            ),
+          ) : Drawer(
+            child: Column(
+              children: [
                 Container(
-                  height: 400,
-                  child: StreamBuilder<DatabaseEvent>(
-                    stream: familyStream,
-                    builder: (context, snapshot) {
+                  height: 700,
+                  child: StreamBuilder<List<UserNotification>>(
+                    stream: userNotisSubject.stream,
+                    builder: (BuildContext context,
+                        AsyncSnapshot<List<UserNotification>> snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Center(child: CircularProgressIndicator());
                       } else if (snapshot.hasError) {
-                        return Center(child: Text("Ошибка: ${snapshot.error}"));
-                      } else if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
-                        return Center(child: Text("Данные отсутствуют"));
+                        return Text('Error: ${snapshot.error}');
+                      } else
+                      if (snapshot.data == null || snapshot.data!.isEmpty) {
+                        return Text('No data');
                       } else {
-                        Map<dynamic, dynamic> values = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-                        List<String> uids = values.keys.cast<String>().toList();
                         return ListView.builder(
-                          itemCount: uids.length,
+                          itemCount: snapshot.data!.length,
                           itemBuilder: (context, index) {
-                            return FutureBuilder<String>(
-                              future: getUserNameeByUid(uids[index]),
-                              builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return ListTile(
-                                    title: Text("Загрузка..."),
-                                  );
-                                } else if (snapshot.hasError) {
-                                  return ListTile(
-                                    title: Text("Ошибка: ${snapshot.error}"),
-                                  );
-                                } else {
-                                  return ListTile(
-                                    title: Text(snapshot.data ?? "Никнейм не найден"),
-                                    onTap: (){
-                                      showDialog(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          title: Text('Удалить пользователя?'),
-                                          content: Text('Вы уверены, что хотите удалить этого пользователя?'),
-                                          actions: <Widget>[
-                                            TextButton(
-                                              child: Text('Отмена'),
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                            ),
-                                            TextButton(
-                                              child: Text('Удалить'),
-                                              onPressed: () {
-
-                                                removeUserOwner(uids[index]).then((_) => Navigator.of(context).pop());
-                                              },
-                                            ),
-                                          ],
-                                        );
-                                      },);
+                            final userNoti = snapshot.data![index];
+                            return ListTile(
+                              title: Text(userNoti.name),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.check),
+                                    onPressed: () {
+                                      acceptUser(userNoti.uid);
                                     },
-                                  );
-
-                                }
-                              },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.close),
+                                    onPressed: () {
+                                      rejectUser(userNoti.uid);
+                                    },
+                                  ),
+                                ],
+                              ),
                             );
                           },
                         );
@@ -472,357 +753,340 @@ class _resumeState extends State<resume> {
                     },
                   ),
                 ),
-
               ],
             ),
+          ),
 
-          ],
-        ),
-      ):Drawer(
-        child: Column(
-          children: [
-            Container(
-              height: 700,
-              child: StreamBuilder<List<UserNotification>>(
-                stream: userNotisSubject.stream,
-                builder: (BuildContext context, AsyncSnapshot<List<UserNotification>> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  } else if (snapshot.data == null || snapshot.data!.isEmpty) {
-                    return Text('No data');
-                  } else {
-                    return ListView.builder(
-                      itemCount: snapshot.data!.length,
-                      itemBuilder: (context, index) {
-                        final userNoti = snapshot.data![index];
-                        return ListTile(
-                          title: Text(userNoti.name),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.check),
-                                onPressed: () {
-                                  acceptUser(userNoti.uid);
-                                },
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.close),
-                                onPressed: () {
-                                  rejectUser(userNoti.uid);
-                                },
-                              ),
-                            ],
+
+          body: isLoading
+              ? Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+            child: SafeArea(
+              child: Center(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+
+
+                      const SizedBox(height: 0),
+
+                      Container(
+                        width: MediaQuery
+                            .of(context)
+                            .size
+                            .width
+                            .clamp(0, 400),
+                        height: MediaQuery
+                            .of(context)
+                            .size
+                            .width
+                            .clamp(0, 400),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(67),
+                          image: DecorationImage(
+                            image: AssetImage('assets/images/KupimVmeste.png'),
+                            fit: BoxFit.cover,
                           ),
-                        );
-                      },
-                    );
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-
-
-      body: SingleChildScrollView(
-        child: SafeArea(
-          child: Center(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-
-
-                  const SizedBox(height: 0),
-
-                  Container(
-                    width: MediaQuery.of(context).size.width.clamp(0, 400),
-                    height: MediaQuery.of(context).size.width.clamp(0, 400),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(67),
-                      image: DecorationImage(
-                        image: AssetImage('assets/images/KupimVmeste.png'),
-                        fit: BoxFit.cover,
+                        ),
                       ),
-                    ),
-                  ),
 
-                  const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                  Text(
-                    'Добро пожаловать, ${user.email} ',
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 16,
-                    ),
-                  ),
+                      Text(
+                        'Добро пожаловать, ${user.email} ',
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 16,
+                        ),
+                      ),
 
-                  const SizedBox(height: 25),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 25.0),
-                          child: Autocomplete<String>(
-                            optionsBuilder: (TextEditingValue textEditingValue) {
-                              if (textEditingValue.text == '') {
-                                return const Iterable<String>.empty();
-                              }
-                              return allProducts.where((String option) {
-                                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                              });
-                            },
-                            onSelected: (String selection) {
+                      const SizedBox(height: 25),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 25.0),
+                              child: Autocomplete<String>(
+                                optionsBuilder: (
+                                    TextEditingValue textEditingValue) {
+                                  if (textEditingValue.text == '') {
+                                    return const Iterable<String>.empty();
+                                  }
+                                  return allProducts.where((String option) {
+                                    return option.toLowerCase().contains(
+                                        textEditingValue.text.toLowerCase());
+                                  });
+                                },
+                                onSelected: (String selection) {
+                                  String category = productsByCategory.keys
+                                      .firstWhere(
+                                        (k) =>
+                                        productsByCategory[k]!.contains(
+                                            selection),
+                                    orElse: () => 'Категория не найдена',
+                                  );
+                                  // Обновляем текстовое поле категории
+                                  _categoryController.text = category;
+                                  selectedProductName = selection;
+                                },
+                                fieldViewBuilder: (context, controller,
+                                    focusNode, onFieldSubmitted) {
+                                  bool isWeb = MediaQuery
+                                      .of(context)
+                                      .size
+                                      .width >= 600;
 
-                              String category = productsByCategory.keys.firstWhere(
-                                    (k) => productsByCategory[k]!.contains(selection),
-                                orElse: () => 'Категория не найдена',
-                              );
-                              // Обновляем текстовое поле категории
-                              _categoryController.text = category;
-                              selectedProductName = selection;
-                            },
-                            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                                  Color borderColor = Colors.black;
 
-                              bool isWeb = MediaQuery.of(context).size.width >= 600;
+                                  return Container(
+                                    height: 50,
+                                    width: isWeb ? 500 : double.infinity,
+                                    child: TextField(
+                                      controller: controller,
 
-                              Color borderColor =  Colors.black;
+                                      focusNode: focusNode,
+                                      decoration: InputDecoration(
+                                        enabledBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                              color: borderColor),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                              color: Colors.black, width: 2),
+                                        ),
+                                        errorBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                              color: Colors.red, width: 2),
+                                        ),
+                                        fillColor: Colors.grey.shade200,
+                                        filled: true,
+                                        hintText: 'Введите название продукта',
+                                        hintStyle: TextStyle(
+                                            color: Colors.grey[500]),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                optionsViewBuilder: (context, onSelected,
+                                    options) {
+                                  return Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Material(
+                                      elevation: 4.0,
+                                      child: Container(
+                                        width: 300,
+                                        child: ListView.builder(
+                                          shrinkWrap: true,
+                                          itemCount: options.length,
+                                          itemBuilder: (context, index) {
+                                            final option = options.elementAt(
+                                                index);
+                                            return ListTile(
+                                              title: Text(option),
+                                              onTap: () {
+                                                onSelected(option);
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            SizedBox(height: 25),
+                            MyTextField(
+                              controller: _categoryController,
+                              needToValidate: true,
+                              hintText: 'Категория',
+                              obscureText: false,
+                            ),
+                            SizedBox(height: 25,),
+                            MyTextField(
+                              controller: _comment,
+                              obscureText: false,
+                              needToValidate: false,
+                              hintText: 'Комментарий',
+                            ),
+                            SizedBox(height: 25,),
+                            MyTextField(
+                              controller: _discription,
+                              hintText: 'Описание',
+                              obscureText: false,
+                              needToValidate: false,
 
-                              return Container(
+                            ),
+                            MyTextField(
+                              controller: count,
+                              hintText: 'Описание',
+                              obscureText: false,
+                              needToValidate: true,
+
+                            ),
+                            SizedBox(height: 25,),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 25.0),
+                              child: Container(
+                                width: MediaQuery
+                                    .of(context)
+                                    .size
+                                    .width >= 600 ? 500 : double.infinity,
                                 height: 50,
-                                width: isWeb? 500:double.infinity,
-                                child: TextField(
-                                  controller: controller,
-
-                                  focusNode: focusNode,
+                                child: TextFormField(
+                                  controller: _dateController,
+                                  readOnly: true,
+                                  // Makes the field not editable; tap only
                                   decoration: InputDecoration(
+
+                                    labelStyle: TextStyle(
+                                        color: Colors.grey[500]),
+                                    suffixIcon: Icon(Icons.calendar_today),
+                                    // Check if the device is a desktop or web to adjust border color
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(color: borderColor),
+                                      borderSide: BorderSide(
+                                        color: Colors.black,
+                                      ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(color: Colors.black,width: 2),
+                                      borderSide: BorderSide(
+                                          color: Colors.black, width: 2),
                                     ),
                                     fillColor: Colors.grey.shade200,
                                     filled: true,
-                                    hintText: 'Введите название продукта',
-                                    hintStyle: TextStyle(color: Colors.grey[500]),
+                                    hintText: 'Выберите дату',
+                                    hintStyle: TextStyle(
+                                        color: Colors.grey[500]),
                                   ),
+                                  onTap: () {
+                                    // Assuming _selectDate is a method that shows a date picker dialog
+                                    _selectDate(context);
+                                  },
                                 ),
-                              );
-                            },
-                            optionsViewBuilder: (context, onSelected, options) {
-                              return Align(
-                                alignment: Alignment.topLeft,
-                                child: Material(
-                                  elevation: 4.0,
+                              ),
+                            ),
+                            SizedBox(height: 25,),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                // Assuming a width threshold of 600 to differentiate between mobile and desktop
+                                bool isDesktop = constraints.maxWidth >= 600;
+
+                                return Center( // This will center the content on desktops
                                   child: Container(
-                                    width: 300,
-                                    child: ListView.builder(
-                                      shrinkWrap: true,
-                                      itemCount: options.length,
-                                      itemBuilder: (context, index) {
-                                        final option = options.elementAt(index);
-                                        return ListTile(
-                                          title: Text(option),
-                                          onTap: () {
-                                            onSelected(option);
-                                          },
-                                        );
-                                      },
+
+                                    width: isDesktop ? 600 : null,
+                                    // Adjust the width as needed for desktop layout
+                                    child: Row(
+                                      mainAxisAlignment: isDesktop
+                                          ? MainAxisAlignment.center
+                                          : MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        SizedBox(width: isDesktop ? 0 : 25,),
+
+                                        Text(
+                                            'Выберите фотографию вашего продукта'),
+                                        SizedBox(width: isDesktop ? 25 : 0),
+                                        ElevatedButton(
+                                          onPressed: _pickFile,
+                                          child: Text(fileName == null
+                                              ? 'Файл не выбран'
+                                              : "Файл выбран", style:
+                                          TextStyle(color: isFilePicked
+                                              ? Colors.green
+                                              : Colors.purple),),
+                                        ),
+                                        SizedBox(width: isDesktop ? 0 : 25,),
+                                      ],
                                     ),
                                   ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        SizedBox(height: 25),
-                        MyTextField(
-                          controller: _categoryController,
-                           needToValidate: true, hintText: 'Категория', obscureText: false,
-                        ),
-                        SizedBox(height: 25,),
-                        MyTextField(
-                          controller: _comment,
-                            obscureText: false, needToValidate: true, hintText: 'Комментарий',
-                        ),
-                        SizedBox(height: 25,),
-                        MyTextField(
-                          controller: _discription, hintText: 'Описание', obscureText: false, needToValidate: true,
-
-                        ),
-                        MyTextField(
-                          controller: count, hintText: 'Описание', obscureText: false, needToValidate: true,
-
-                        ),
-                        SizedBox(height: 25,),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 25.0),
-                          child: Container(
-                            width: MediaQuery.of(context).size.width >= 600? 500:double.infinity,
-                            height: 50,
-                            child: TextFormField(
-                              controller: _dateController,
-                              readOnly: true, // Makes the field not editable; tap only
-                              decoration: InputDecoration(
-
-                                labelStyle: TextStyle(color: Colors.grey[500]),
-                                suffixIcon: Icon(Icons.calendar_today),
-                                // Check if the device is a desktop or web to adjust border color
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color:   Colors.black ,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.black,width: 2),
-                                ),
-                                fillColor: Colors.grey.shade200,
-                                filled: true,
-                                hintText: 'Выберите дату',
-                                hintStyle: TextStyle(color: Colors.grey[500]),
-                              ),
-                              onTap: () {
-                                // Assuming _selectDate is a method that shows a date picker dialog
-                                _selectDate(context);
+                                );
                               },
                             ),
-                          ),
-                        ),
-                        SizedBox(height: 25,),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            Text('Выберите фотографию вашего продукта'),
-
-                            ElevatedButton(
-                              onPressed: _pickFile,
-                              child: Text(fileName ?? 'Файл не выбран'),
+                            SizedBox(height: 20),
+                            Switch(
+                              value: isalter,
+                              onChanged: (value) {
+                                setState(() {
+                                  isalter = value;
+                                });
+                              },
+                              activeTrackColor: Colors.lightGreenAccent,
+                              activeColor: Colors.green,
                             ),
+                            isalter?DropdownButton<Product>(
+                              value: selectedowner,
+                              onChanged: (Product? newValue) {
+                                setState(() {
+                                  selectedowner = newValue;
+                                });
+                              },
+                              items: products.map<DropdownMenuItem<Product>>((Product product) {
+                                return DropdownMenuItem<Product>(
+                                  value: product,
+                                  child: Row(
+                                    children: <Widget>[
+                                      Image.network(product.imageUrl, width: 50, height: 50),
+                                      SizedBox(width: 10),
+                                      Text(product.name),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ):SizedBox(),
                           ],
                         ),
-                        SizedBox(height: 20),
+                      ),
+                      SizedBox(height: 25,),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              isalter?handleSubmitAnimalter(context,selectedowner!.owner):handleSubmitAnim(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              primary: Colors.black, // Background color
+                              padding: const EdgeInsets.all(25),
 
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 25,),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                      onTap: (){
-                        handleSubmit();
-                        },
-                          child: Container(
-                            padding: const EdgeInsets.all(25),
-                            margin: const EdgeInsets.symmetric(horizontal: 25),
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            child: const Center(
-                              child: Text(
-                                "Вычислить и скачать",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                            child: const Text(
+                              "ДОБАВИТЬ ТОВАР",
+                              style: TextStyle(
+                                color: Colors.white,
+
+                                fontSize: 16,
                               ),
                             ),
                           ),
-                        ),
-                      SizedBox(width: 20,),
-                      MyButton1(text: 'Добавить в историю', onTap: () {  }, isActive: false,)
+                        ],
+                      ),
+
+                      SizedBox(height: 30,)
+
+
+                      // not a member? register now
                     ],
                   ),
-                  SizedBox(height: 20,),
-
-                  // not a member? register now
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-class MyButton extends StatelessWidget {
-  const MyButton({super.key, required this.formKey, required this.onTap});
-  final formKey;
-  final void Function() onTap;
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: (){
-      },
-      child: Container(
-        padding: const EdgeInsets.all(25),
-        margin: const EdgeInsets.symmetric(horizontal: 25),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Center(
-          child: Text(
-            "Вычислить и скачать",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class MyButton1 extends StatelessWidget {
-  MyButton1({super.key, required this.onTap, required this.text, required this.isActive});
-  final Function()? onTap;
-  final String text;
-  bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isActive ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.all(25),
-        margin: const EdgeInsets.symmetric(horizontal: 25),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.black : Colors.black45,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+        );
+      }
+    }
 class MyTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
   final bool obscureText;
   final bool needToValidate;
+  final String? Function(String?)? validator;
 
   const MyTextField({
     Key? key,
@@ -830,6 +1094,7 @@ class MyTextField extends StatelessWidget {
     required this.hintText,
     required this.obscureText,
     required this.needToValidate,
+    this.validator,
   }) : super(key: key);
 
   @override
@@ -838,19 +1103,19 @@ class MyTextField extends StatelessWidget {
     bool isWeb = MediaQuery.of(context).size.width >= 600;
 
     // Adjust border color based on the device type (desktop or mobile).
-    Color borderColor =  Colors.black;  // Black for desktop, white for mobile.
+    Color borderColor = Colors.black; // Initially black for desktop
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25.0),
       child: Container(
         width: isWeb ? 500 : double.infinity, // Width adjustment based on the device type.
-        height: 50,
+        constraints: BoxConstraints(minHeight: 50), // Устанавливаем минимальную высоту для контейнера
         decoration: BoxDecoration(),
         child: TextFormField(
           validator: needToValidate
               ? (value) {
             if (value == null || value.isEmpty) {
-              return 'Вы не ввели данные!';
+              return 'Это поле обязательно!!'; // Возвращает пустую строку вместо текста ошибки
             }
             return null;
           }
@@ -858,16 +1123,21 @@ class MyTextField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           decoration: InputDecoration(
+            contentPadding: EdgeInsets.symmetric(vertical: 10.0).copyWith(left: 10.0), // Настройка внутренних отступов
             enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: borderColor), // Dynamic border color.
+              borderSide: BorderSide(color: borderColor,width: 1),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.red, width: 2),
             ),
             focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.black,width: 2),
+              borderSide: BorderSide(color: Colors.black, width: 2),
             ),
             fillColor: Colors.grey.shade200,
             filled: true,
             hintText: hintText,
             hintStyle: TextStyle(color: Colors.grey[500]),
+            errorStyle: TextStyle(height: 0, color: Colors.red), // Скрываем текст ошибки
           ),
         ),
       ),
@@ -934,10 +1204,18 @@ class Field extends StatelessWidget {
       const SizedBox(height: 10),],);
   }
 }
+
 class UserNotification {
   final String uid;
   final String name;
   final String? email;
 
   UserNotification({required this.uid,required this.name, this.email});
+}
+class Product {
+  final String name;
+  final String imageUrl;
+  final String owner;
+
+  Product({required this.name, required this.imageUrl,required this.owner});
 }
