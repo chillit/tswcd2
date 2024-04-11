@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:tswcd/Pages/Registration_page.dart';
 class resume extends StatefulWidget {
 
   resume({super.key});
@@ -56,10 +57,16 @@ class _resumeState extends State<resume> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
 
     if (result != null) {
-      setState(() {
-        fileBytes = result.files.first.bytes; // Сохраняем байты файла
-        fileName = result.files.first.name; // Сохраняем имя файла
-      });
+      try {
+        setState(() {
+          fileBytes = result.files.first.bytes;
+          fileName = result.files.first.name;
+        });
+      } catch (e) {
+        print('Error processing file picker result: $e');
+      }
+    } else {
+      print('File picker result is null');
     }
   }
   Future<void> _selectDate(BuildContext context) async {
@@ -83,7 +90,7 @@ class _resumeState extends State<resume> {
 
     try {
       // Сначала загружаем файл в Firebase Storage и получаем URL изображения
-      final ref = FirebaseStorage.instance.ref('products/${FirebaseAuth.instance.currentUser!.uid}/$id/$fileName');
+      final ref = FirebaseStorage.instance.ref('products/${FirebaseAuth.instance.currentUser!.uid}/$id/image');
       final result = await ref.putData(fileData);
       final imageUrl = await result.ref.getDownloadURL();
 
@@ -101,20 +108,174 @@ class _resumeState extends State<resume> {
       return;
     }
   }
+  late List<String> allusers = [];
+  late List<String> users = [];
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance.reference();
+  Future<void> _fetchUsers() async {
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      final currentUserUid = currentUser.uid;
+      final dataSnapshot = await _database.child('users').once();
 
+      final usersMap = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
+      if (usersMap != null) {
+        usersMap.forEach((key, value) {
+
+          if (value['owner'] == currentUserUid) {
+            setState(() {
+              users.add(value["name"]);
+            });
+          }
+          else{
+            allusers.add(value["email"]);
+          }
+        });
+      }
+    }
+  }
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+  late List<String> filteredUsers = [];
+  String? selectedUser;
   Future<void> handleSubmit() async {
     if (fileBytes != null && fileName != null) {
       await sendDataToDatabase(selectedProductName,_categoryController.text, _comment.text, _discription.text, _dateController.text, fileBytes!, fileName!);
-      // Очистите контроллеры или покажите сообщение об успехе
     }
   }
+  void _filterUsers(String query) {
+    setState(() {
+      if (query.isNotEmpty) {
+        filteredUsers = allusers.where((user) => user.contains(query)).toList();
+      } else {
+        filteredUsers = List.from(users);
+      }
+    });
+  }
+  Future<String> getUserIdByEmail(String userEmail) async {
+    final databaseReference = FirebaseDatabase.instance.ref();
+    String userId = '';
+
+    // Предполагается, что структура ваших данных позволяет вам искать по электронной почте напрямую.
+    // Если нет, вам может потребоваться использовать другой подход, например, сначала получить все email и искать среди них.
+    final query = databaseReference.child('users').orderByChild('email').equalTo(userEmail);
+    DataSnapshot snapshot = await query.get();
+
+    if (snapshot.exists) {
+      final Map<dynamic, dynamic> users = snapshot.value as Map<dynamic, dynamic>;
+      // Получаем первый ключ, так как orderByChild + equalTo даст нам объект с одним ключом, если email уникален.
+      userId = users.keys.first as String;
+    } else {
+      print("No user found for the provided email");
+    }
+
+    return userId;
+  }
+  Future<void> _addCurrentUserToSelectedUserNotis(String userEmail) async {
+    // Предположим, что у вас есть способ получения идентификатора пользователя по его электронной почте.
+    // Это может потребовать дополнительного запроса к вашей базе данных.
+    String userId = await getUserIdByEmail(userEmail); // Эту функцию нужно реализовать самостоятельно
+
+    if (userId.isNotEmpty) {
+      final databaseReference = FirebaseDatabase.instance.ref();
+      databaseReference.child('users/$userId/notis/${user.uid}').set(true).then((_) {
+        print("Current user UID added successfully to selected user's notis");
+      }).catchError((error) {
+        print("Failed to add current user UID: $error");
+      });
+    }
+  }
+  String selectedemail = "";
+  bool isDrawerOpen = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _formKey = GlobalKey<FormState>();
   String? selectedProductName;
   @override
   Widget build(BuildContext context) {
     List<String> allProducts = productsByCategory.values.expand((list) => list).toList();
     return Scaffold(
+
       backgroundColor: Colors.white,
+
+      key: _scaffoldKey,
+      appBar: AppBar(
+        actions: [
+          Row(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(left: 20),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        FirebaseAuth.instance.signOut();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => Registration()),
+                        );
+                      },
+                      icon: Icon(Icons.logout),
+                    ),
+                    SizedBox(width: 10),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  _scaffoldKey.currentState?.openEndDrawer(); // Open the end drawer
+                },
+                icon: Icon(Icons.menu), // Change the icon as needed
+              ),
+            ],
+          )
+        ],
+      ),
+      endDrawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              child: Text('Sidebar'),
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+            ),
+            Column(
+              children: <Widget>[
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text == '') {
+                      return const Iterable<String>.empty();
+                    }
+                    return allusers.where((String option) {
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    selectedemail = selection;
+                  },
+                ),
+                IconButton(
+                    onPressed: (){
+                      _addCurrentUserToSelectedUserNotis(selectedemail);
+                    },
+                    icon: Icon(Icons.add))
+              ],
+            ),
+            for (var user in users)
+              ListTile(
+                title: Text(user),
+                onTap: () {
+                  // Handle tapping on the user item
+                },
+              ),
+          ],
+        ),
+      ),
+
+
       body: SingleChildScrollView(
         child: SafeArea(
           child: Center(
@@ -123,28 +284,8 @@ class _resumeState extends State<resume> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 20),
-                      child: Row(
-                        children: [
-                          IconButton(
-                              onPressed: (){
-                                FirebaseAuth.instance.signOut();
-                              },
-                              icon: Icon(Icons.logout)),
-                          SizedBox(width: 10,),
-                          IconButton(
-                            onPressed: (){
-                            },
-                            icon: Icon(Icons.history, color: Colors.black,),
 
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+
                   const SizedBox(height: 0),
 
                   // logo

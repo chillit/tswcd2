@@ -118,13 +118,17 @@ class _MyHomePageState extends State<Registration> {
 
 
   Future<void> addUserToRealtimeDatabase(String uid, String name, String email) async {
-    DatabaseReference databaseRef = FirebaseDatabase.instance.ref('users/$uid');
-    await FirebaseDatabase.instance.ref('users/${uid}').set({
+    String roleValue = selectedRole == "Член семьи" ? "owner" : "";
+    Map<String, dynamic> userData = {
       'email': email,
       'name': namecontroller.text.trim(),
       'role': selectedRole,
+      "owner": "",
+    };
 
-    });
+
+    await FirebaseDatabase.instance.ref('users/$uid').set(userData);
+
   }
 
 

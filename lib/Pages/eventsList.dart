@@ -56,7 +56,9 @@ class _ProductListState extends State<ProductList> {
               itemCount: products.length,
               itemBuilder: (context, index) {
                 var product = products[index];
-                var imageRef = "products/${currentUseruid}/${ids[index]}"; // Путь к изображению
+                var id = ids[index];
+                var imageRef = "products/${currentUseruid}/${ids[index]}/image";
+
 
                 return Card(
                   clipBehavior: Clip.antiAlias, // Обрезать содержимое карточки по ее границам
@@ -67,15 +69,18 @@ class _ProductListState extends State<ProductList> {
                         child: FutureBuilder<String>(
                           future: getImageUrl(imageRef),
                           builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-                            if (snapshot.connectionState == ConnectionState.done &&
-                                snapshot.hasData) {
-                              return Image.network(
-                                snapshot.data!, // URL изображения товара
-                                fit: BoxFit.cover, // Заполнить доступное пространство, сохранив пропорции изображения
-                              );
-                            } else {
-                              // Заглушка или индикатор загрузки
-                              return Center(child: CircularProgressIndicator());
+                            switch (snapshot.connectionState) {
+                              case ConnectionState.waiting:
+                                return Center(child: CircularProgressIndicator());
+                              default:
+                                if (snapshot.hasError) {
+                                  return Text('Error: ${snapshot.error}');
+                                } else {
+                                  return Image.network(
+                                    snapshot.data!,
+                                    fit: BoxFit.cover,
+                                  );
+                                }
                             }
                           },
                         ),
