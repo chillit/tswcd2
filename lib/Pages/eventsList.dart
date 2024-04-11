@@ -37,6 +37,7 @@ class _ProductListState extends State<ProductList> {
   String owneruid = "";
   Future<void> isCurrentUserOwner() async {
     final user = FirebaseAuth.instance.currentUser;
+    owneruid = user!.uid;
     if (user == null) {
       print("No user logged in");
       isowner = false;
@@ -122,7 +123,7 @@ class _ProductListState extends State<ProductList> {
                   onTap: (){
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => EventDetailsPage(startDate: product["date"], title: product["name"], type: product["category"], smallDescription: product["comment"], largeDescription: product["description"], imageurl: product["imageUrl"],)),
+                      MaterialPageRoute(builder: (context) => EventDetailsPage(startDate: product["date"], title: product["name"], type: product["category"], smallDescription: product["comment"], largeDescription: product["description"], imageurl: product["imageUrl"], uid: ids[index],  owner: owneruid,)),
                     );
                   },
                   child: Card(

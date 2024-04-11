@@ -6,13 +6,15 @@ import '';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
-class EventDetailsPage extends StatelessWidget {
+class EventDetailsPage extends StatefulWidget {
   final String startDate;
   final String title;
   final String type;
   final String smallDescription;
   final String largeDescription;
   final String imageurl;
+  final String owner;
+  final String uid;
 
   EventDetailsPage({
     required this.startDate,
@@ -20,11 +22,26 @@ class EventDetailsPage extends StatelessWidget {
     required this.type,
     required this.smallDescription,
     required this.largeDescription,
-    required this.imageurl
+    required this.imageurl,
+    required this.uid,
+    required this.owner
   });
 
+  @override
+  State<EventDetailsPage> createState() => _EventDetailsPageState();
+}
 
+class _EventDetailsPageState extends State<EventDetailsPage> {
   final databaseReference = FirebaseDatabase.instance.reference().child('events');
+  DatabaseReference databaseReferencee = FirebaseDatabase.instance.ref();
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    databaseReferencee = FirebaseDatabase.instance.ref('products/${widget.owner}/${widget.uid}/alter');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,33 +61,33 @@ class EventDetailsPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$title',
+                          '${widget.title}',
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 10),
                         Text(
-                          '${type == "charity"?"Благотворительноость":type == "sport"?"Спорт":type == "culture"?"Культура":type == "study"?"Учеба":type == "IT"?"IT":type == "comedy"?"Комедия":type == "music"?"Музыка":""}',
+                          '${widget.type == "charity"?"Благотворительноость":widget.type == "sport"?"Спорт":widget.type == "culture"?"Культура":widget.type == "study"?"Учеба":widget.type == "IT"?"IT":widget.type == "comedy"?"Комедия":widget.type == "music"?"Музыка":""}',
                           style: TextStyle(fontSize: 18),
                         ),
                         SizedBox(height: 10),
                         Text(
-                          '$startDate',
+                          '${widget.startDate}',
                           style: TextStyle(fontSize: 18),
                         ),
                         SizedBox(height: 10),
                         Text(
-                          '$smallDescription',
+                          '${widget.smallDescription}',
                           style: TextStyle(fontSize: 18),
                         ),
                         SizedBox(height: 10),
                         Text(
-                          '$largeDescription',
+                          '${widget.largeDescription}',
                           style: TextStyle(fontSize: 18),
                         ),
                       ],
                     ),
                   ),
-                  Image.network(imageurl)
+                  Image.network(widget.imageurl)
                 ],
               ),
 
@@ -97,7 +114,7 @@ class EventDetailsPage extends StatelessWidget {
               ),
               SizedBox(height: 30),
               StreamBuilder<DatabaseEvent>(
-                stream: databaseReference.onValue,
+                stream: databaseReferencee.onValue,
                 builder: (context, snapshot) {
                   if (snapshot.hasData && snapshot.data != null) {
                     DataSnapshot dataValues = snapshot.data!.snapshot;
@@ -114,7 +131,7 @@ class EventDetailsPage extends StatelessWidget {
 
                       events = events.where((event) {
                         DateTime eventDate = DateTime.parse(event['date']);
-                        return (type.contains(event['type']) && title!=event["title"]);
+                        return (widget.type.contains(event['type']) && widget.title!=event["title"]);
                       }).toList();
 
                       final double screenWidth = MediaQuery.of(context).size.width;
@@ -126,7 +143,7 @@ class EventDetailsPage extends StatelessWidget {
 
                       return Align(
                         alignment: Alignment.center,
-                        child: Container( 
+                        child: Container(
                           height: 600,
                           child: GridView.builder(
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -139,17 +156,7 @@ class EventDetailsPage extends StatelessWidget {
                             itemBuilder: (BuildContext context, int index) {
                               return GestureDetector(
                                 onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => EventDetailsPage(
-                                        startDate: events[index]['date'],
-                                        title: events[index]['title'],
-                                        type: events[index]['type'],
-                                        smallDescription: events[index]['small_description'],
-                                        largeDescription: events[index]['full_description'], imageurl: imageurl,)
 
-                                    ),
-                                  );
                                 },
 
                                 child: Card(
