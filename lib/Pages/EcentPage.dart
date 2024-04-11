@@ -115,14 +115,7 @@ class EventDetailsPage extends StatelessWidget {
                     ],
                   ),
                   SizedBox(width: 20),
-                  ElevatedButton(
-                    onPressed: _addToGoogleCalendar,
-                    child: Text('Добавить в Google Календарь'),
-                    style: ElevatedButton.styleFrom(
-                      primary: Theme.of(context).primaryColor, // Use the theme's primary color
-                      onPrimary: Colors.white, // Use white text color
-                    ),
-                  ),
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,6 +147,20 @@ class EventDetailsPage extends StatelessWidget {
                       ],
                     ),
                   )
+                ],
+              ),
+              SizedBox(height: 25,),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: _addToGoogleCalendar,
+                    child: Text('Добавить в Google Календарь'),
+                    style: ElevatedButton.styleFrom(
+                      primary: Theme.of(context).primaryColor, // Use the theme's primary color
+                      onPrimary: Colors.white, // Use white text color
+                    ),
+                  ),
                 ],
               ),
               SizedBox(height: 30),

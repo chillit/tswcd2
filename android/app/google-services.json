@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "886894692072",
-    "project_id": "tswcd2-87a16",
-    "storage_bucket": "tswcd2-87a16.appspot.com"
+    "project_number": "982692893418",
+    "project_id": "tswcd-8e055",
+    "storage_bucket": "tswcd-8e055.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:886894692072:android:65e99c705a0f6ddbae6b5d",
+        "mobilesdk_app_id": "1:982692893418:android:f7d7031e18e84451367d93",
         "android_client_info": {
-          "package_name": "com.example.tswcd2"
+          "package_name": "com.example.tswcd"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB1jy_wJiRcGjt_rwBQQR7ImM0sFtViIqE"
+          "current_key": "AIzaSyDlGuZpsFyFqjln06uoN7cOJvZNXw5KbxI"
         }
       ],
       "services": {

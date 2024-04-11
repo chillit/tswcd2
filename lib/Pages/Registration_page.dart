@@ -3,8 +3,9 @@ import 'dart:js';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:tswcd2/Pages/business_registration.dart';
-import 'package:tswcd2/main.dart';
+import 'package:tswcd/Pages/business_registration.dart';
+import 'package:tswcd/Pages/eventsList.dart';
+import 'package:tswcd/main.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_database/firebase_database.dart';
 
@@ -87,22 +88,34 @@ class _MyHomePageState extends State<Registration> {
       }
     });
   }
-  Future<void> registerUser(String email, String password,String name) async {
+  Future<void> registerUser(String email, String password, String name, BuildContext context) async {
     try {
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+
       // After successful registration, UID is available from `userCredential.user`
       String uid = userCredential.user!.uid;
-      addUserToRealtimeDatabase(uid,name,email);
-      // Use the UID to save user information under the 'users' branch in Realtime Database
+      await addUserToRealtimeDatabase(uid, name, email);
+
+      // Navigate to the next page here
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => EventList(), // Replace with your next page
+        ),
+      );
 
     } on FirebaseAuthException catch (e) {
       // Handle registration errors
-      // ...
+      if (e.code == 'weak-password') {
+        SnackBarService.showSnackBar(context, 'The password provided is too weak.', true);
+      } else if (e.code == 'email-already-in-use') {
+        SnackBarService.showSnackBar(context, 'Аккаунт с такой эл. почтой уже существует.', true);
+      }
     }
   }
+
 
 
 
@@ -163,7 +176,7 @@ class _MyHomePageState extends State<Registration> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(67.0),
                                     child: Image.asset(
-                                      'assets/images/SkuchnoAta.png',
+                                      'assets/images/ptr_neskuchno.png',
                                       fit: BoxFit.contain,
                                     ),
                                   ),
@@ -171,7 +184,7 @@ class _MyHomePageState extends State<Registration> {
                               ),
                               SizedBox(height: 10,),
                               Text(
-                                'Добро пожаловать на NEskuchnoAta,\n систему поиска развлечения в Алмате',
+                                'Добро пожаловать на NEskuchnoPtr,\n систему поиска развлечения в Петропавловске',
                                 style: TextStyle(fontFamily: "Futura"),
                                 textAlign: TextAlign.center,
                               ),
@@ -203,7 +216,7 @@ class _MyHomePageState extends State<Registration> {
                                         borderRadius: BorderRadius.circular(67.0),
                                         child: Image.asset(
 
-                                          'assets/images/SkuchnoAta.png',
+                                          'assets/images/ptr_neskuchno.png',
                                           fit: BoxFit.contain,
                                         ),
                                       ),
@@ -212,7 +225,7 @@ class _MyHomePageState extends State<Registration> {
                                   SizedBox(height: 10,),
 
                                   Text(
-                                    'Добро пожаловать на NEskuchnoAta,\nсистему поиска развлечения в Алмате',
+                                    'Добро пожаловать на NEskuchnoPtr,\nсистему поиска развлечения в Петропавловске',
                                     style: TextStyle(fontFamily: 'Futura'),
                                     textAlign: TextAlign.center,
                                   ),
@@ -491,13 +504,14 @@ class _MyHomePageState extends State<Registration> {
                                 width: 300,
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    if (_formKey.currentState!.validate()) { // <-- Add this line
-                                      // If the form is valid, display a Snackbar.
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(SnackBar(content: Text('Аккаунт успешно создан')));
-
+                                    if (_formKey.currentState!.validate()) {
                                       // Call your registration logic here
-                                      registerUser(emailcontroller.text.trim(), passwordcontroller.text.trim(),namecontroller.text.trim());
+                                      registerUser(
+                                        emailcontroller.text.trim(),
+                                        passwordcontroller.text.trim(),
+                                        namecontroller.text.trim(),
+                                        context, // Pass the context here
+                                      );
                                     }
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -568,7 +582,7 @@ class _MyHomePageState extends State<Registration> {
                                   onTap: () {
                                     Navigator.pushReplacement(
                                       context,
-                                      MaterialPageRoute(builder: (context) => MyApp()),
+                                      MaterialPageRoute(builder: (context) => MyHomePage()),
                                     );
                                   },
                                 ),
@@ -586,55 +600,7 @@ class _MyHomePageState extends State<Registration> {
                     ),
                   ),
                   SizedBox(height: 10,),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 25.0, vertical: 10),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            thickness: 0.5,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10.0),
-                          child: SizedBox(
-                            width: MediaQuery.of(context).size.width / 2,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                          Flexible(
-                            child: Text(
-                              'А если вы бизнесмэн, то регистрируйтесь ',
-                              softWrap: true,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey[700]),
-                            )),
-                                GestureDetector(
-                                  child: Text(
-                                    ' здесь. ',
-                                    style: TextStyle(color: Colors.blue),
-                                  ),
-                                  onTap: () {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => RegistrationBusi()),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            thickness: 0.5,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+
                 ],
               ),
             ),

@@ -1,6 +1,6 @@
 {
-    "name": "tswcd2",
-    "short_name": "tswcd2",
+    "name": "tswcd",
+    "short_name": "tswcd",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

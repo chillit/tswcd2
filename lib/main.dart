@@ -1,131 +1,613 @@
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'Pages/eventsList.dart';
+import 'package:tswcd/Pages/Registration_page.dart';
+import 'package:tswcd/Pages/eventsList.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'createProduct.dart';
 import 'firebase_options.dart';
-void main() async {
+class SnackBarService {
+  static const errorColor = Colors.red;
+  static const okColor = Colors.green;
+
+  static Future<void> showSnackBar(
+      BuildContext context, String message, bool error) async {
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: error ? errorColor : okColor,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+}
+void main() async{
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(EventList());
+  User? currentUser = FirebaseAuth.instance.currentUser;
+  runApp(MyApp(home: currentUser == null ? MyHomePage() : ProductList()));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  final Widget home;
 
-  // This widget is the root of your application.
+  MyApp({required this.home});
+
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void checkEvents(){
+    final databaseRef = FirebaseDatabase.instance.reference();
+    final eventsRef = databaseRef.child('events');
+
+    eventsRef.once().then((DatabaseEvent snapshot) {
+      // Check if the data is a List
+      if (snapshot.snapshot.value is List<dynamic>) {
+        List<dynamic> valuesList = snapshot.snapshot.value as List<dynamic>;
+
+        // Iterate through the list
+        for (var i = 0; i < valuesList.length; i++) {
+          // Check if the current item is a Map
+          if (valuesList[i] is Map<dynamic, dynamic>) {
+            Map<dynamic, dynamic> values = valuesList[i];
+            // Proceed with your logic
+            DateTime endDate = DateTime.parse(values['end_date']);
+            DateTime now = DateTime.now();
+
+            if (endDate.isBefore(now)) {
+              print('Document at index $i has end_date before today.');
+              // Remove the document from the database
+              eventsRef.child(i.toString()).remove().then((_) {
+                print("Document deleted successfully");
+              }).catchError((error) {
+                print("Failed to delete the document: $error");
+              });
+            }
+          }
+        }
+      } else if (snapshot.snapshot.value is Map<dynamic, dynamic>) {
+        Map<dynamic, dynamic> values = snapshot.snapshot.value as Map<dynamic, dynamic>;
+        values.forEach((key, values) {
+          // Your existing logic
+        });
+      }
+    });
+  }
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    checkEvents();
+  }
+
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
+
+      title: 'NEskuchnoPtr',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        fontFamily: 'Futura',
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+
+      home: this.widget.home,
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  void checkEvents() {
+    final databaseRef = FirebaseDatabase.instance.reference();
+    final eventsRef = databaseRef.child('events');
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+    eventsRef.once().then((DatabaseEvent snapshot) {
+      // Check if the data is a List
+      if (snapshot.snapshot.value is List<dynamic>) {
+        List<dynamic> valuesList = snapshot.snapshot.value as List<dynamic>;
+
+        // Iterate through the list
+        for (var i = 0; i < valuesList.length; i++) {
+          // Check if the current item is a Map
+          if (valuesList[i] is Map<dynamic, dynamic>) {
+            Map<dynamic, dynamic> values = valuesList[i];
+            // Proceed with your logic
+            DateTime endDate = DateTime.parse(values['end_date']);
+            DateTime now = DateTime.now();
+
+            if (endDate.isBefore(now)) {
+              print('Document at index $i has end_date before today.');
+              // Remove the document from the database
+              eventsRef.child(i.toString()).remove().then((_) {
+                print("Document deleted successfully");
+              }).catchError((error) {
+                print("Failed to delete the document: $error");
+              });
+            }
+          }
+        }
+      } else if (snapshot.snapshot.value is Map<dynamic, dynamic>) {
+        Map<dynamic, dynamic> values = snapshot.snapshot.value as Map<dynamic, dynamic>;
+        values.forEach((key, values) {
+          // Your existing logic
+        });
+      }
     });
+  }
+  void signUserIn(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: emailcontroller.text, password: passwordcontroller.text);
+      checkEvents();
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => resume()),
+      );
+    } on FirebaseAuthException catch (e) {
+      print(e.code);
+      String errorMessage;
+      if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+        AwesomeDialog(
+          context: context,
+          dialogType: DialogType.error,
+          animType: AnimType.bottomSlide,
+          title: 'Ошибка',
+          desc: 'Неправильный email или пароль. Повторите попытку',
+          btnOkOnPress: () {},
+          btnOkColor: Colors.red
+        )..show();
+      } else {
+        AwesomeDialog(
+          context: context,
+          dialogType: DialogType.error,
+          animType: AnimType.bottomSlide,
+          title: 'Ошибка',
+          desc: 'Неправильный email или пароль. Повторите попытку',
+          btnOkOnPress: () {},
+            btnOkColor: Colors.red
+        )..show();
+      }
+    }
+  }
+
+
+
+  TextEditingController emailcontroller = TextEditingController();
+
+  TextEditingController passwordcontroller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    super.dispose();
+    emailcontroller.dispose();
+    passwordcontroller.dispose();
+  }
+
+  bool isDesktop(BuildContext context) => MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
+
+  List<Team> teams = [];
+
+  // get teams
+  Future getTeams() async {
+    var response = await http.get(Uri.https('balldontlie.io', 'api/v1/teams'));
+    print(response.body);
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    getTeams();
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+      backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: false,
+      body: SafeArea(
+        top: true,
+        child: Center(
+          child: SingleChildScrollView(
+            child: Form(
+              key:_formKey,
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 40,
+                  ),
+                  Row(
+                    children: [
+                      if (isDesktop(context))
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width:
+                                MediaQuery.of(context).size.shortestSide / 2,
+                                height:
+                                MediaQuery.of(context).size.shortestSide / 2,
+                                child: Container(
+                                  width: 300,
+                                  height: 230,
+                                  decoration: BoxDecoration(color: Colors.white),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(67.0),
+                                    child: Image.asset(
+                                      'assets/images/ptr_neskuchno.png',
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 10,),
+                              Text(
+                                'Добро пожаловать на NEskuchnoPtr,\nсистему поиска развлечения в Петропавловске',
+                                style: TextStyle(fontFamily: "Futura"),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            if (!isDesktop(context))
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width:
+                                    MediaQuery.of(context).size.shortestSide /
+                                        2,
+                                    height:
+                                    MediaQuery.of(context).size.shortestSide /
+                                        2,
+                                    child: Container(
+
+                                      width: 300,
+                                      height: 230,
+                                      decoration:
+                                      BoxDecoration(color: Colors.white,),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(67.0),
+                                        child: Image.asset(
+
+                                          'assets/images/ptr_neskuchno.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: 10,),
+
+                                  Text(
+                                    'Добро пожаловать на NEskuchnoPtr,\nсистему поиска развлечения в Петропавловске',
+                                    style: TextStyle(fontFamily: 'Futura'),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            SizedBox(
+                              height: 10,
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: Text(
+                                    'Введите почту:',
+                                    style: TextStyle(
+                                      fontFamily: 'Futura',
+                                      fontSize: 20,
+                                    ),
+                                    textAlign: TextAlign.start,
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 10,
+                                ),
+                                Padding(
+                                  padding:
+                                  EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0),
+                                  child: Container(
+                                    width: 450,
+                                    height: 50,
+                                    child: TextFormField(
+                                      controller: emailcontroller,
+                                      textCapitalization: TextCapitalization.none,
+                                      obscureText: false,
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor:
+                                        Color.fromRGBO(46, 46, 93, 0.04),
+                                        labelText: 'Электронная почта',
+                                        labelStyle: TextStyle(
+                                          fontFamily: 'Futura',
+                                          fontWeight: FontWeight.normal,
+                                        ),
+                                        floatingLabelStyle: TextStyle(
+                                          fontFamily: 'Futura',
+                                          fontWeight: FontWeight.normal,
+                                          color: Colors.brown,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.grey,
+                                            width: 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.black,
+                                            width: 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        errorBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.red,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        focusedErrorBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.red,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                      ),
+                                      style: TextStyle(
+                                        fontFamily: 'Futura',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.normal,
+                                      ),
+                                      keyboardType: TextInputType.emailAddress,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Введите эл почту';
+                                        } else if (!value.contains('@')) {
+                                          return 'Введите правильную эл почту';
+                                        }
+                                        return null; // means input is correct
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(
+                              height: 20,
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: Text(
+                                    'Введите пароль:',
+                                    style: TextStyle(
+                                      fontFamily: 'Futura',
+                                      fontSize: 20,
+                                    ),
+                                    textAlign: TextAlign.start,
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 10,
+                                ),
+                                Padding(
+                                  padding:
+                                  EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0),
+                                  child: Container(
+                                    width: 450,
+                                    height: 50,
+                                    child: TextFormField(
+                                      controller: passwordcontroller,
+                                      textCapitalization: TextCapitalization.none,
+                                      obscureText: false,
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor:
+                                        Color.fromRGBO(46, 46, 93, 0.04),
+                                        labelText: 'Пароль',
+                                        labelStyle: TextStyle(
+                                          fontFamily: 'Futura',
+                                          fontWeight: FontWeight.normal,
+                                        ),
+                                        floatingLabelStyle: TextStyle(
+                                          fontFamily: 'Futura',
+                                          fontWeight: FontWeight.normal,
+                                          color: Colors.brown,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.grey,
+                                            width: 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.black,
+                                            width: 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        errorBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.red,
+                                            width: 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                        focusedErrorBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: Colors.red,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+                                        ),
+                                      ),
+                                      style: TextStyle(
+                                        fontFamily: 'Futura',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.normal,
+                                      ),
+                                      keyboardType: TextInputType.visiblePassword,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Ввведите пароль';
+                                        } else if (value.length < 6) {
+                                          return 'Пароль должен быть минимум 6 символов в длину';
+                                        }
+                                        return null; // means input is correct
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Padding(
+                              padding:
+                              EdgeInsetsDirectional.fromSTEB(0, 50, 0, 0),
+                              child: SizedBox(
+                                height: 50,
+                                width: 300,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    if (_formKey.currentState!.validate()) { // <-- Add this line
+                                      // If the form is valid, display a Snackbar.
+
+
+                                      // Call your registration logic here
+                                      signUserIn(context);
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    padding: EdgeInsets.symmetric(horizontal: 24),
+                                    primary: Color(
+                                        0xFF4838D1), // Replace with your desired button color
+                                    elevation: 3,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Войти в аккаунт',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w100,
+                                          fontFamily: 'Futura',
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(
+                    height: 40,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 25.0, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10.0),
+                          child: SizedBox(
+                            width: MediaQuery.of(context).size.width / 2,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+
+                                Flexible(
+                                  child: Text(
+                                    'Если у вас нет аккаунта',
+                                    softWrap: true,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.grey[700]),
+                                  ),
+                                ),
+                          GestureDetector(
+                            child: Text(
+                              ' зарегестритруйтесь ',
+                              style: TextStyle(color: Colors.blue),
+                            ),
+                            onTap: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => Registration()),
+                              );
+
+                            },
+                          ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
+}
+class Team {
+  final String abbreviation; // eg. LAL
+  final String city; // eg. Los Angeles
+
+  Team({
+    required this.abbreviation,
+    required this.city,
+  });
 }

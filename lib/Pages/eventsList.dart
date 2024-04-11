@@ -1,13 +1,106 @@
 import 'dart:html';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'dart:math';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:tswcd2/Pages/EcentPage.dart';
+import 'package:tswcd/Pages/EcentPage.dart';
 
 import '../main.dart';
+class ProductList extends StatefulWidget {
+  @override
+  _ProductListState createState() => _ProductListState();
+}
+
+class _ProductListState extends State<ProductList> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  DatabaseReference? databaseReference;
+  String currentUseruid = "";
+  @override
+  void initState() {
+    super.initState();
+    final currentUser = _auth.currentUser;
+    currentUseruid = _auth.currentUser!.uid;
+    if (currentUser != null) {
+      databaseReference = FirebaseDatabase.instance.reference().child('products/${currentUser.uid}');
+    }
+  }
+  Future<String> getImageUrl(String imagePath) async {
+    String imageUrl = await FirebaseStorage.instance.ref(imagePath).getDownloadURL();
+    return imageUrl;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Список товаров"),
+      ),
+      body: databaseReference == null
+          ? Center(child: Text("Пользователь не аутентифицирован"))
+          : StreamBuilder<DatabaseEvent>(
+        stream: databaseReference!.onValue,
+        builder: (context, snapshot) {
+          if (snapshot.hasData && !snapshot.hasError && snapshot.data!.snapshot.value != null) {
+            Map<String, dynamic> productsMap = snapshot.data!.snapshot.value as Map<String, dynamic>;
+            List<dynamic> products = productsMap.values.toList();
+            List<String> ids = productsMap.keys.toList();
+
+            return GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, // Количество столбцов
+                childAspectRatio: 1, // Соотношение сторон плитки
+              ),
+              itemCount: products.length,
+              itemBuilder: (context, index) {
+                var product = products[index];
+                var imageRef = "products/${currentUseruid}/${ids[index]}"; // Путь к изображению
+
+                return Card(
+                  clipBehavior: Clip.antiAlias, // Обрезать содержимое карточки по ее границам
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch, // Растягиваем содержимое на всю ширину карточки
+                    children: [
+                      Expanded(
+                        child: FutureBuilder<String>(
+                          future: getImageUrl(imageRef),
+                          builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+                            if (snapshot.connectionState == ConnectionState.done &&
+                                snapshot.hasData) {
+                              return Image.network(
+                                snapshot.data!, // URL изображения товара
+                                fit: BoxFit.cover, // Заполнить доступное пространство, сохранив пропорции изображения
+                              );
+                            } else {
+                              // Заглушка или индикатор загрузки
+                              return Center(child: CircularProgressIndicator());
+                            }
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          product['name'] ?? 'Название не указано', // Название товара
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          } else {
+            return Center(child: CircularProgressIndicator());
+          }
+        },
+      ),
+    );
+  }
+}
 
 class EventList extends StatefulWidget {
   @override
@@ -85,7 +178,7 @@ class _EventListState extends State<EventList> {
       key: _scaffoldKey,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Center(child: Text('NEskuchnoAta')),
+        title: Center(child: Text('NEskuchnoPtr')),
         actions: <Widget>[
           Padding(
             padding: const EdgeInsets.only(left: 12.0),
@@ -159,6 +252,10 @@ class _EventListState extends State<EventList> {
                   ),
                   itemCount: events.length,
                   itemBuilder: (BuildContext context, int index) {
+
+
+                    bool isPhone=screenWidth<600;
+
                     return GestureDetector(
                       onTap: () {
                         final currentUser = FirebaseAuth.instance.currentUser;
@@ -194,7 +291,7 @@ class _EventListState extends State<EventList> {
                           padding: EdgeInsets.all(16.0),
                           child: Column(
                             children: <Widget>[
-                              Expanded(
+                              if (!isPhone) Expanded( // This will hide the icon on phone screens
                                 child: Icon(
                                   getIconForCategory(events[index]['type']),
                                   size: 100,
@@ -204,6 +301,7 @@ class _EventListState extends State<EventList> {
                               Text(
                                 events[index]['title'],
                                 style: TextStyle(fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
                               ),
                               SizedBox(height: 8.0),
                               Text(events[index]['small_description']),
@@ -380,7 +478,7 @@ class _EventListState extends State<EventList> {
                 signOut();
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => MyApp()),
+                  MaterialPageRoute(builder: (context) => MyHomePage()),
                 );
               },
                 style: ElevatedButton.styleFrom(
