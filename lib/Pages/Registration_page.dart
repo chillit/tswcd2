@@ -107,7 +107,7 @@ class _MyHomePageState extends State<Registration> {
     } on FirebaseAuthException catch (e) {
       // Handle registration errors
       if (e.code == 'weak-password') {
-        SnackBarService.showSnackBar(context, 'The password provided is too weak.', true);
+        SnackBarService.showSnackBar(context, 'Пароль слишком легкий.', true);
       } else if (e.code == 'email-already-in-use') {
         SnackBarService.showSnackBar(context, 'Аккаунт с такой эл. почтой уже существует.', true);
       }

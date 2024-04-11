@@ -113,7 +113,7 @@ class _resumeState extends State<resume> {
   Widget build(BuildContext context) {
     List<String> allProducts = productsByCategory.values.expand((list) => list).toList();
     return Scaffold(
-      backgroundColor: Colors.grey[300],
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: SafeArea(
           child: Center(
@@ -175,56 +175,131 @@ class _resumeState extends State<resume> {
                     padding: const EdgeInsets.all(8.0),
                     child: Column(
                       children: [
-                        Autocomplete<String>(
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text == '') {
-                              return const Iterable<String>.empty();
-                            }
-                            return allProducts.where((String option) {
-                              return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                            });
-                          },
-                          onSelected: (String selection) {
-                            // Находим категорию для выбранного продукта
-                            String category = productsByCategory.keys.firstWhere(
-                                  (k) => productsByCategory[k]!.contains(selection),
-                              orElse: () => 'Категория не найдена',
-                            );
-                            // Обновляем текстовое поле категории
-                            _categoryController.text = category;
-                            selectedProductName = selection;
-                          },
-                        ),
-                        SizedBox(height: 20),
-                        // Текстовое поле для отображения выбранной категории
-                        TextField(
-                          controller: _categoryController,
-                          readOnly: false, // Сделаем его только для чтения
-                          decoration: InputDecoration(labelText: 'Категория'),
-                        ),
-                        SizedBox(height: 15,),
-                        TextField(
-                          controller: _comment,
-                          readOnly: false, // Сделаем его только для чтения
-                          decoration: InputDecoration(labelText: 'Комментарий'),
-                        ),
-                        SizedBox(height: 15,),
-                        TextField(
-                          controller: _discription,
-                          readOnly: false, // Сделаем его только для чтения
-                          decoration: InputDecoration(labelText: 'Описание'),
-                        ),
-                        SizedBox(height: 15,),
-                        TextFormField(
-                          controller: _dateController,
-                          readOnly: false, // Сделаем его только для чтения, чтобы открыть диалоговое окно при касании
-                          decoration: InputDecoration(
-                            labelText: 'Выберите дату',
-                            suffixIcon: Icon(Icons.calendar_today),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                          child: Autocomplete<String>(
+                            optionsBuilder: (TextEditingValue textEditingValue) {
+                              if (textEditingValue.text == '') {
+                                return const Iterable<String>.empty();
+                              }
+                              return allProducts.where((String option) {
+                                return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                              });
+                            },
+                            onSelected: (String selection) {
+                              // Находим категорию для выбранного продукта
+                              String category = productsByCategory.keys.firstWhere(
+                                    (k) => productsByCategory[k]!.contains(selection),
+                                orElse: () => 'Категория не найдена',
+                              );
+                              // Обновляем текстовое поле категории
+                              _categoryController.text = category;
+                              selectedProductName = selection;
+                            },
+                            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                              // This condition checks if the device screen width is 600 or more, indicating desktop or large tablet.
+                              bool isWeb = MediaQuery.of(context).size.width >= 600;
+
+                              // Adjust border color based on the device type (desktop or mobile).
+                              Color borderColor =  Colors.black; // Black for desktop, white for mobile.
+
+                              return Container(
+                                height: 50,
+                                width: isWeb? 500:double.infinity,
+                                child: TextField(
+                                  controller: controller,
+
+                                  focusNode: focusNode,
+                                  decoration: InputDecoration(
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(color: borderColor), // Dynamic border color based on the device type.
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.grey.shade400),
+                                    ),
+                                    fillColor: Colors.grey.shade200,
+                                    filled: true,
+                                    hintText: 'Введите название продукта',
+                                    hintStyle: TextStyle(color: Colors.grey[500]),
+                                  ),
+                                ),
+                              );
+                            },
+                            optionsViewBuilder: (context, onSelected, options) {
+                              return Align(
+                                alignment: Alignment.topLeft,
+                                child: Material(
+                                  elevation: 4.0,
+                                  child: Container(
+                                    width: 300, // Adjust the width as needed
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: options.length,
+                                      itemBuilder: (context, index) {
+                                        final option = options.elementAt(index);
+                                        return ListTile(
+                                          title: Text(option),
+                                          onTap: () {
+                                            onSelected(option);
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          onTap: () {
-                            _selectDate(context);
-                          },
+                        ),
+                        SizedBox(height: 25),
+                        // Текстовое поле для отображения выбранной категории
+                        MyTextField(
+                          controller: _categoryController,
+                           needToValidate: true, hintText: 'Категория', obscureText: false,
+                        ),
+                        SizedBox(height: 25,),
+                        MyTextField(
+                          controller: _comment,
+                            obscureText: false, needToValidate: true, hintText: 'Комментарий',
+                        ),
+                        SizedBox(height: 25,),
+                        MyTextField(
+                          controller: _discription, hintText: 'Описание', obscureText: false, needToValidate: true,
+
+                        ),
+                        SizedBox(height: 15,),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 25.0),
+                          child: Container(
+                            width: MediaQuery.of(context).size.width >= 600? 500:double.infinity,
+                            height: 50,
+                            child: TextFormField(
+                              controller: _dateController,
+                              readOnly: true, // Makes the field not editable; tap only
+                              decoration: InputDecoration(
+                                labelText: 'Выберите дату',
+                                labelStyle: TextStyle(color: Colors.grey[500]),
+                                suffixIcon: Icon(Icons.calendar_today),
+                                // Check if the device is a desktop or web to adjust border color
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color:   Colors.black ,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.grey.shade400),
+                                ),
+                                fillColor: Colors.grey.shade200,
+                                filled: true,
+                                hintText: 'Выберите дату',
+                                hintStyle: TextStyle(color: Colors.grey[500]),
+                              ),
+                              onTap: () {
+                                // Assuming _selectDate is a method that shows a date picker dialog
+                                _selectDate(context);
+                              },
+                            ),
+                          ),
                         ),
                         SizedBox(height: 15,),
                         ElevatedButton(
@@ -343,34 +418,47 @@ class MyButton1 extends StatelessWidget {
 }
 
 class MyTextField extends StatelessWidget {
-  final controller;
+  final TextEditingController controller;
   final String hintText;
   final bool obscureText;
   final bool needToValidate;
 
   const MyTextField({
-    super.key,
+    Key? key,
     required this.controller,
     required this.hintText,
     required this.obscureText,
-    required this.needToValidate
-  });
+    required this.needToValidate,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // This condition checks if the device screen width is 600 or more, indicating desktop or large tablet.
+    bool isWeb = MediaQuery.of(context).size.width >= 600;
+
+    // Adjust border color based on the device type (desktop or mobile).
+    Color borderColor =  Colors.black;  // Black for desktop, white for mobile.
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25.0),
-      child: TextFormField(
-        validator: needToValidate ? (value) {
-          if (value == null || value.isEmpty) {
-            return 'Вы не ввели данные!';
+      child: Container(
+        width: isWeb ? 500 : double.infinity, // Width adjustment based on the device type.
+        height: 50,
+        decoration: BoxDecoration(),
+        child: TextFormField(
+          validator: needToValidate
+              ? (value) {
+            if (value == null || value.isEmpty) {
+              return 'Вы не ввели данные!';
+            }
+            return null;
           }
-          return null;
-        } : null,
-        controller: controller,
-        decoration: InputDecoration(
-            enabledBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
+              : null,
+          controller: controller,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: borderColor), // Dynamic border color.
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.grey.shade400),
@@ -378,11 +466,14 @@ class MyTextField extends StatelessWidget {
             fillColor: Colors.grey.shade200,
             filled: true,
             hintText: hintText,
-            hintStyle: TextStyle(color: Colors.grey[500])),
+            hintStyle: TextStyle(color: Colors.grey[500]),
+          ),
+        ),
       ),
     );
   }
 }
+
 class SquareTile extends StatelessWidget {
   final String imagePath;
   const SquareTile({
