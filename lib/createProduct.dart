@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data'; // Для Uint8List
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file/memory.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -53,22 +54,6 @@ class _resumeState extends State<resume> {
   Uint8List? fileBytes;
   String? fileName;
 
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
-
-    if (result != null) {
-      try {
-        setState(() {
-          fileBytes = result.files.first.bytes;
-          fileName = result.files.first.name;
-        });
-      } catch (e) {
-        print('Error processing file picker result: $e');
-      }
-    } else {
-      print('File picker result is null');
-    }
-  }
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       locale: const Locale("ru","RU"),
@@ -83,7 +68,7 @@ class _resumeState extends State<resume> {
       });
     }
   }
-  Future<void> sendDataToDatabase(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName) async {
+  Future<bool> sendDataToDatabase(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName) async {
     final databaseRef = FirebaseDatabase.instance.ref();
     final id = DateTime.now().millisecondsSinceEpoch.toString(); // Простой способ генерации уникального ID
     final productRef = databaseRef.child('products/${FirebaseAuth.instance.currentUser!.uid}/$id');
@@ -103,11 +88,21 @@ class _resumeState extends State<resume> {
         'date': date,
         'imageUrl': imageUrl, // Сохраняем URL изображения
       });
+      return true;
     } catch (e) {
       print(e);
-      return;
+      return false;
+
     }
   }
+
+
+  // Определяем GlobalKey для формы
+
+
+
+
+
   late List<String> allusers = [];
   late List<String> users = [];
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -140,11 +135,78 @@ class _resumeState extends State<resume> {
   }
   late List<String> filteredUsers = [];
   String? selectedUser;
-  Future<void> handleSubmit() async {
-    if (fileBytes != null && fileName != null) {
-      await sendDataToDatabase(selectedProductName,_categoryController.text, _comment.text, _discription.text, _dateController.text, fileBytes!, fileName!);
+
+  String? validateProduct(String? value) {
+    if (selectedProductName == null || selectedProductName!.isEmpty) {
+      return "Пожалуйста, выберите продукт";
+    }
+    return null;
+  }
+  bool isFilePicked = false;  // Добавляем флаг для отслеживания выбора файла
+
+  Future<void> _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
+
+    if (result != null) {
+      try {
+        setState(() {
+          fileBytes = result.files.first.bytes;
+          fileName = result.files.first.name;
+          isFilePicked = true;  // Файл выбран
+        });
+      } catch (e) {
+        print('Error processing file picker result: $e');
+      }
+    } else {
+      setState(() {
+        isFilePicked = false;  // Файл не выбран
+      });
+      print('File picker result is null');
     }
   }
+
+  bool isLoading = false;  // Состояние для отслеживания загрузки
+
+  Future<void> handleSubmit(BuildContext context) async {
+    if (_formKey.currentState!.validate() && isFilePicked) {
+      String? productValidationResult = validateProduct(selectedProductName);
+      if (productValidationResult == null) {
+        if (fileBytes != null && fileName != null) {
+          setState(() {
+            isLoading = true;  // Начинаем показ индикатора загрузки
+          });
+          try {
+            bool success = await sendDataToDatabase(selectedProductName!, _categoryController.text, _comment.text, _discription.text, _dateController.text, fileBytes!, fileName!);
+            if (success) {
+              AwesomeDialog(
+                context: context,
+                dialogType: DialogType.success,
+                animType: AnimType.bottomSlide,
+                title: 'Успех',
+                desc: 'Товар успешно добавлен!',
+                btnOkOnPress: () {},
+              )..show();
+              _categoryController.clear();
+              _comment.clear();
+              _discription.clear();
+              _dateController.clear();
+            } else {
+              // Обработка неудачной отправки данных
+            }
+          } finally {
+            setState(() {
+              isLoading = false;  // Заканчиваем показ индикатора загрузки
+            });
+          }
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Пожалуйста, выберите файл перед добавлением товара!'))
+      );
+    }
+  }
+
   void _filterUsers(String query) {
     setState(() {
       if (query.isNotEmpty) {
@@ -276,7 +338,7 @@ class _resumeState extends State<resume> {
       ),
 
 
-      body: SingleChildScrollView(
+      body: isLoading?Center(child: CircularProgressIndicator()):SingleChildScrollView(
         child: SafeArea(
           child: Center(
             child: Form(
@@ -359,6 +421,9 @@ class _resumeState extends State<resume> {
                                     focusedBorder: OutlineInputBorder(
                                       borderSide: BorderSide(color: Colors.black,width: 2),
                                     ),
+                                    errorBorder:  OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.red, width: 2),
+                                    ),
                                     fillColor: Colors.grey.shade200,
                                     filled: true,
                                     hintText: 'Введите название продукта',
@@ -402,11 +467,11 @@ class _resumeState extends State<resume> {
                         SizedBox(height: 25,),
                         MyTextField(
                           controller: _comment,
-                            obscureText: false, needToValidate: true, hintText: 'Комментарий',
+                            obscureText: false, needToValidate: false, hintText: 'Комментарий',
                         ),
                         SizedBox(height: 25,),
                         MyTextField(
-                          controller: _discription, hintText: 'Описание', obscureText: false, needToValidate: true,
+                          controller: _discription, hintText: 'Описание', obscureText: false, needToValidate: false,
 
                         ),
                         SizedBox(height: 25,),
@@ -444,16 +509,33 @@ class _resumeState extends State<resume> {
                           ),
                         ),
                         SizedBox(height: 25,),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            Text('Выберите фотографию вашего продукта'),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Assuming a width threshold of 600 to differentiate between mobile and desktop
+                            bool isDesktop = constraints.maxWidth >= 600;
 
-                            ElevatedButton(
-                              onPressed: _pickFile,
-                              child: Text(fileName ?? 'Файл не выбран'),
-                            ),
-                          ],
+                            return Center( // This will center the content on desktops
+                              child: Container(
+
+                                width: isDesktop ? 600 : null, // Adjust the width as needed for desktop layout
+                                child: Row(
+                                  mainAxisAlignment: isDesktop ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    SizedBox(width: isDesktop?0:25,),
+
+                                    Text('Выберите фотографию вашего продукта'),
+                                    SizedBox(width: isDesktop?25:0),
+                                    ElevatedButton(
+                                      onPressed: _pickFile,
+                                      child: Text(fileName == null? 'Файл не выбран': "Файл выбран",style:
+                                      TextStyle(color:  isFilePicked ? Colors.green : Colors.purple ),),
+                                    ),
+                                    SizedBox(width: isDesktop?0:25,),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         SizedBox(height: 20),
 
@@ -464,34 +546,32 @@ class _resumeState extends State<resume> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      GestureDetector(
-                      onTap: (){
-                        handleSubmit();
+                      ElevatedButton(
+                        onPressed: () {
+                          handleSubmit(context);
                         },
-                          child: Container(
-                            padding: const EdgeInsets.all(25),
-                            margin: const EdgeInsets.symmetric(horizontal: 25),
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                "Вычислить и скачать",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
+                        style: ElevatedButton.styleFrom(
+                          primary: Colors.black, // Background color
+                          padding: const EdgeInsets.all(25),
+
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                      SizedBox(width: 20,),
-                      MyButton1(text: 'Добавить в историю', onTap: () {  }, isActive: false,)
+                        child: const Text(
+                          "ДОБАВИТЬ ТОВАР",
+                          style: TextStyle(
+                            color: Colors.white,
+
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  SizedBox(height: 20,),
+
+                  SizedBox(height: 30,)
+
 
                   // not a member? register now
                 ],
@@ -503,74 +583,16 @@ class _resumeState extends State<resume> {
     );
   }
 }
-class MyButton extends StatelessWidget {
-  const MyButton({super.key, required this.formKey, required this.onTap});
-  final formKey;
-  final void Function() onTap;
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: (){
-      },
-      child: Container(
-        padding: const EdgeInsets.all(25),
-        margin: const EdgeInsets.symmetric(horizontal: 25),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Center(
-          child: Text(
-            "Вычислить и скачать",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
-class MyButton1 extends StatelessWidget {
-  MyButton1({super.key, required this.onTap, required this.text, required this.isActive});
-  final Function()? onTap;
-  final String text;
-  bool isActive;
 
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isActive ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.all(25),
-        margin: const EdgeInsets.symmetric(horizontal: 25),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.black : Colors.black45,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+
 
 class MyTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
   final bool obscureText;
   final bool needToValidate;
+  final String? Function(String?)? validator;
 
   const MyTextField({
     Key? key,
@@ -578,6 +600,7 @@ class MyTextField extends StatelessWidget {
     required this.hintText,
     required this.obscureText,
     required this.needToValidate,
+    this.validator,
   }) : super(key: key);
 
   @override
@@ -586,19 +609,19 @@ class MyTextField extends StatelessWidget {
     bool isWeb = MediaQuery.of(context).size.width >= 600;
 
     // Adjust border color based on the device type (desktop or mobile).
-    Color borderColor =  Colors.black;  // Black for desktop, white for mobile.
+    Color borderColor = Colors.black; // Initially black for desktop
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25.0),
       child: Container(
         width: isWeb ? 500 : double.infinity, // Width adjustment based on the device type.
-        height: 50,
+        constraints: BoxConstraints(minHeight: 50), // Устанавливаем минимальную высоту для контейнера
         decoration: BoxDecoration(),
         child: TextFormField(
           validator: needToValidate
               ? (value) {
             if (value == null || value.isEmpty) {
-              return 'Вы не ввели данные!';
+              return 'Это поле обязательно!!'; // Возвращает пустую строку вместо текста ошибки
             }
             return null;
           }
@@ -606,16 +629,21 @@ class MyTextField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           decoration: InputDecoration(
+            contentPadding: EdgeInsets.symmetric(vertical: 10.0).copyWith(left: 10.0), // Настройка внутренних отступов
             enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: borderColor), // Dynamic border color.
+              borderSide: BorderSide(color: borderColor),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.red, width: 2),
             ),
             focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.black,width: 2),
+              borderSide: BorderSide(color: Colors.black, width: 2),
             ),
             fillColor: Colors.grey.shade200,
             filled: true,
             hintText: hintText,
             hintStyle: TextStyle(color: Colors.grey[500]),
+            errorStyle: TextStyle(height: 0, color: Colors.red), // Скрываем текст ошибки
           ),
         ),
       ),
