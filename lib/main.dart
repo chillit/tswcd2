@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -95,6 +96,15 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
 
       title: 'КупимВместе',
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: [
+        Locale('ru', ''),
+         // arabic, no country code
+      ],
       theme: ThemeData(
         fontFamily: 'Futura',
         primarySwatch: Colors.blue,
@@ -114,48 +124,12 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  void checkEvents() {
-    final databaseRef = FirebaseDatabase.instance.reference();
-    final eventsRef = databaseRef.child('events');
 
-    eventsRef.once().then((DatabaseEvent snapshot) {
-      // Check if the data is a List
-      if (snapshot.snapshot.value is List<dynamic>) {
-        List<dynamic> valuesList = snapshot.snapshot.value as List<dynamic>;
-
-        // Iterate through the list
-        for (var i = 0; i < valuesList.length; i++) {
-          // Check if the current item is a Map
-          if (valuesList[i] is Map<dynamic, dynamic>) {
-            Map<dynamic, dynamic> values = valuesList[i];
-            // Proceed with your logic
-            DateTime endDate = DateTime.parse(values['end_date']);
-            DateTime now = DateTime.now();
-
-            if (endDate.isBefore(now)) {
-              print('Document at index $i has end_date before today.');
-              // Remove the document from the database
-              eventsRef.child(i.toString()).remove().then((_) {
-                print("Document deleted successfully");
-              }).catchError((error) {
-                print("Failed to delete the document: $error");
-              });
-            }
-          }
-        }
-      } else if (snapshot.snapshot.value is Map<dynamic, dynamic>) {
-        Map<dynamic, dynamic> values = snapshot.snapshot.value as Map<dynamic, dynamic>;
-        values.forEach((key, values) {
-          // Your existing logic
-        });
-      }
-    });
-  }
   void signUserIn(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: emailcontroller.text, password: passwordcontroller.text);
-      checkEvents();
+
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => resume()),
@@ -163,27 +137,7 @@ class _MyHomePageState extends State<MyHomePage> {
     } on FirebaseAuthException catch (e) {
       print(e.code);
       String errorMessage;
-      if (e.code == 'user-not-found' || e.code == 'wrong-password') {
-        AwesomeDialog(
-          context: context,
-          dialogType: DialogType.error,
-          animType: AnimType.bottomSlide,
-          title: 'Ошибка',
-          desc: 'Неправильный email или пароль. Повторите попытку',
-          btnOkOnPress: () {},
-          btnOkColor: Colors.red
-        )..show();
-      } else {
-        AwesomeDialog(
-          context: context,
-          dialogType: DialogType.error,
-          animType: AnimType.bottomSlide,
-          title: 'Ошибка',
-          desc: 'Неправильный email или пароль. Повторите попытку',
-          btnOkOnPress: () {},
-            btnOkColor: Colors.red
-        )..show();
-      }
+
     }
   }
 
@@ -501,10 +455,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 child: ElevatedButton(
                                   onPressed: () {
                                     if (_formKey.currentState!.validate()) { // <-- Add this line
-                                      // If the form is valid, display a Snackbar.
 
-
-                                      // Call your registration logic here
                                       signUserIn(context);
                                     }
                                   },

@@ -64,6 +64,7 @@ class _resumeState extends State<resume> {
   }
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
+      locale: const Locale("ru","RU"),
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
@@ -215,7 +216,7 @@ class _resumeState extends State<resume> {
                                       borderSide: BorderSide(color: borderColor), // Dynamic border color based on the device type.
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(color: Colors.grey.shade400),
+                                      borderSide: BorderSide(color: Colors.black,width: 2),
                                     ),
                                     fillColor: Colors.grey.shade200,
                                     filled: true,
@@ -267,7 +268,7 @@ class _resumeState extends State<resume> {
                           controller: _discription, hintText: 'Описание', obscureText: false, needToValidate: true,
 
                         ),
-                        SizedBox(height: 15,),
+                        SizedBox(height: 25,),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 25.0),
                           child: Container(
@@ -277,7 +278,7 @@ class _resumeState extends State<resume> {
                               controller: _dateController,
                               readOnly: true, // Makes the field not editable; tap only
                               decoration: InputDecoration(
-                                labelText: 'Выберите дату',
+
                                 labelStyle: TextStyle(color: Colors.grey[500]),
                                 suffixIcon: Icon(Icons.calendar_today),
                                 // Check if the device is a desktop or web to adjust border color
@@ -287,7 +288,7 @@ class _resumeState extends State<resume> {
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.grey.shade400),
+                                  borderSide: BorderSide(color: Colors.black,width: 2),
                                 ),
                                 fillColor: Colors.grey.shade200,
                                 filled: true,
@@ -301,17 +302,24 @@ class _resumeState extends State<resume> {
                             ),
                           ),
                         ),
-                        SizedBox(height: 15,),
-                        ElevatedButton(
-                          onPressed: _pickFile,
-                          child: Text('Выбрать файл'),
+                        SizedBox(height: 25,),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Text('Выберите фотографию вашего продукта'),
+
+                            ElevatedButton(
+                              onPressed: _pickFile,
+                              child: Text(fileName ?? 'Файл не выбран'),
+                            ),
+                          ],
                         ),
                         SizedBox(height: 20),
-                        Text(fileName ?? 'Файл не выбран'),
+
                       ],
                     ),
                   ),
-                  SizedBox(height: 10,),
+                  SizedBox(height: 25,),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -461,7 +469,7 @@ class MyTextField extends StatelessWidget {
               borderSide: BorderSide(color: borderColor), // Dynamic border color.
             ),
             focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey.shade400),
+              borderSide: BorderSide(color: Colors.black,width: 2),
             ),
             fillColor: Colors.grey.shade200,
             filled: true,
