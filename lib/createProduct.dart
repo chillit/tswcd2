@@ -25,6 +25,7 @@ class _resumeState extends State<resume> {
   final TextEditingController _comment = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _discription = TextEditingController();
+  final TextEditingController count = TextEditingController();
   Uint8List? fileBytes;
   String? fileName;
   bool isowner = false;
@@ -102,7 +103,7 @@ class _resumeState extends State<resume> {
     }
   }
 
-  Future<void> sendDataToDatabase(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName) async {
+  Future<void> sendDataToDatabase(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName,int count) async {
     final databaseRef = FirebaseDatabase.instance.ref();
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final productRef = databaseRef.child('products/${FirebaseAuth.instance.currentUser!.uid}/$id');
@@ -118,6 +119,8 @@ class _resumeState extends State<resume> {
         'description': description,
         'date': date,
         'imageUrl': imageUrl,
+        'count': count,
+        "alter":""
       });
     } catch (e) {
       print(e);
@@ -157,19 +160,21 @@ class _resumeState extends State<resume> {
       final usersMap = dataSnapshot.snapshot.value as Map<dynamic, dynamic>?;
       if (usersMap != null) {
         usersMap.forEach((key, value) {
-
           if (value['owner'] == currentUserUid) {
             setState(() {
               users.add(UserNotification(uid: key, name: value["name"]));
             });
-          }
-          else{
-            allusers.add(value["email"]);
+          } else {
+            if (value["role"] == "Член семьи") {
+              allusers.add(value["email"]);
+            }
           }
         });
       }
+      print(allusers);
     }
   }
+
   void initState() {
 
     super.initState();
@@ -181,7 +186,7 @@ class _resumeState extends State<resume> {
 
   Future<void> handleSubmit() async {
     if (fileBytes != null && fileName != null) {
-      await sendDataToDatabase(selectedProductName,_categoryController.text, _comment.text, _discription.text, _dateController.text, fileBytes!, fileName!);
+      await sendDataToDatabase(selectedProductName,_categoryController.text, _comment.text, _discription.text, _dateController.text, fileBytes!, fileName!,int.parse(count.text));
     }
   }
   void loadUserNotis() async {
@@ -339,7 +344,6 @@ class _resumeState extends State<resume> {
                   children: [
                     IconButton(
                       onPressed: () {
-                        _fetchUsers();
                         FirebaseAuth.instance.signOut();
                         Navigator.push(
                           context,
@@ -354,6 +358,7 @@ class _resumeState extends State<resume> {
               ),
               IconButton(
                 onPressed: () {
+                  _fetchUsers();
                   _scaffoldKey.currentState?.openEndDrawer();
                   print(isowner);
                 },
@@ -385,7 +390,7 @@ class _resumeState extends State<resume> {
                     }
                     return allusers.where((String option) {
                       return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                    });
+                    }).toSet().toList();
                   },
                   onSelected: (String selection) {
                     selectedemail = selection;
@@ -650,6 +655,10 @@ class _resumeState extends State<resume> {
                         SizedBox(height: 25,),
                         MyTextField(
                           controller: _discription, hintText: 'Описание', obscureText: false, needToValidate: true,
+
+                        ),
+                        MyTextField(
+                          controller: count, hintText: 'Описание', obscureText: false, needToValidate: true,
 
                         ),
                         SizedBox(height: 25,),
