@@ -42,6 +42,7 @@ class _MyHomePageState extends State<Registration> {
   TextEditingController emailcontroller = TextEditingController();
   TextEditingController namecontroller=TextEditingController();
   TextEditingController passwordcontroller = TextEditingController();
+  TextEditingController rolecontroller= TextEditingController();
 
   @override
   void initState() {
@@ -54,40 +55,36 @@ class _MyHomePageState extends State<Registration> {
     emailcontroller.dispose();
     namecontroller.dispose();
     passwordcontroller.dispose();
+    rolecontroller.dispose();
   }
+
+  String? selectedRole;
+  bool showError = false;
+
+  // Example list of options for the dropdown.
+  final List<String> roles = ['Глава семьи', 'Член семьи', ];
+
+  void _onSelected() {
+    setState(() {
+      if (selectedRole ==null)
+        {
+          showError=true;
+        }
+      else
+        showError=false;
+
+    });
+  }
+
+
+
   final FirebaseDatabase _database = FirebaseDatabase.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   Future<void> signupemailpass(String email, String pass) async {
     await _auth.signInWithEmailAndPassword(email: email, password: pass);
   }
 
-  void _saveToDatabase() async {
-    FirebaseAuth.instance.authStateChanges().listen((User? user) async {
-      if (user == null) {
-        print('User is currently signed out!');
-      } else {
-        String currentDate = DateTime.now().toIso8601String().split('T')[0];
-        // Retrieve the name using the UID from the users branch
-        final nameSnapshot = await FirebaseDatabase.instance.ref('users/${user.uid}').once();
-        String name = nameSnapshot.snapshot.value?.toString() ?? '';
 
-        // Set the user's email and name in the database under the 'users' branch
-        await FirebaseDatabase.instance.ref('users/${user.uid}').set({
-          'email': user.email,
-          'name': namecontroller.text.trim(),
-          'IIN': '',
-          'role': 'default',
-          'interests': {
-            'sport': 0,
-            'IT':0,
-            'culture':0,
-            'charity':0,
-            'study':0,
-          }
-        });
-      }
-    });
-  }
   Future<void> registerUser(String email, String password, String name, BuildContext context) async {
     try {
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -124,17 +121,11 @@ class _MyHomePageState extends State<Registration> {
     await FirebaseDatabase.instance.ref('users/${uid}').set({
       'email': email,
       'name': namecontroller.text.trim(),
-      'IIN': '',
-      'role': 'default',
-      'interests': {
-        'sport': 0,
-        'IT':0,
-        'culture':0,
-        'charity':0,
-        'study':0,
-      }
+      'role': selectedRole,
+
     });
   }
+
 
   final _formKey = GlobalKey<FormState>();
 
@@ -176,7 +167,7 @@ class _MyHomePageState extends State<Registration> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(67.0),
                                     child: Image.asset(
-                                      'assets/images/ptr_neskuchno.png',
+                                      'assets/images/KupimVmeste.png',
                                       fit: BoxFit.contain,
                                     ),
                                   ),
@@ -184,7 +175,7 @@ class _MyHomePageState extends State<Registration> {
                               ),
                               SizedBox(height: 10,),
                               Text(
-                                'Добро пожаловать на NEskuchnoPtr,\n систему поиска развлечения в Петропавловске',
+                                'Добро пожаловать на КупимВместе,\n систему покупки товаров',
                                 style: TextStyle(fontFamily: "Futura"),
                                 textAlign: TextAlign.center,
                               ),
@@ -216,7 +207,7 @@ class _MyHomePageState extends State<Registration> {
                                         borderRadius: BorderRadius.circular(67.0),
                                         child: Image.asset(
 
-                                          'assets/images/ptr_neskuchno.png',
+                                          'assets/images/KupimVmeste.png',
                                           fit: BoxFit.contain,
                                         ),
                                       ),
@@ -225,7 +216,7 @@ class _MyHomePageState extends State<Registration> {
                                   SizedBox(height: 10,),
 
                                   Text(
-                                    'Добро пожаловать на NEskuchnoPtr,\nсистему поиска развлечения в Петропавловске',
+                                    'Добро пожаловать на КупимВместе,\nсистему покупки товаров',
                                     style: TextStyle(fontFamily: 'Futura'),
                                     textAlign: TextAlign.center,
                                   ),
@@ -494,6 +485,63 @@ class _MyHomePageState extends State<Registration> {
                                     ),
                                   ),
                                 ),
+                                SizedBox(height: 20,),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(left: 8),
+                                      child: Text(
+                                        'Выберите роль:',
+                                        style: TextStyle(
+                                          fontFamily: 'Futura',
+                                          fontSize: 20,
+                                        ),
+                                        textAlign: TextAlign.start,
+                                      ),
+                                    ),
+                                    SizedBox(height: 15,),
+                                    Padding(padding: EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0),
+                                      child: Container(
+                                        width: 450,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+
+                                          color:  (showError ? Colors.red.withOpacity(0.2) : Color.fromRGBO(46, 46, 93, 0.04)) ,
+                                          border: Border.all(
+                                            color: showError ? Colors.red : Colors.grey,
+                                            width: 1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(25),
+
+                                        ),
+                                        padding: EdgeInsets.symmetric(horizontal: 15),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            focusColor: Colors.transparent,
+                                            value: selectedRole,
+                                            isExpanded: true,
+                                            icon: Icon(Icons.arrow_drop_down, color: Colors.black),
+                                            iconSize: 24,
+                                            elevation: 0,
+                                            style: TextStyle(color: Colors.black, fontSize: 15),
+                                            onChanged: (String? newValue) {
+                                              setState(() {
+                                                selectedRole = newValue;
+                                              });
+                                            },
+                                            items: roles.map<DropdownMenuItem<String>>((String value) {
+                                              return DropdownMenuItem<String>(
+                                                value: value,
+                                                child: Text(value, style: TextStyle(fontFamily: 'Futura')),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
                               ],
                             ),
                             Padding(
@@ -504,7 +552,8 @@ class _MyHomePageState extends State<Registration> {
                                 width: 300,
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    if (_formKey.currentState!.validate()) {
+                                    _onSelected();
+                                    if (_formKey.currentState!.validate() && !showError) {
                                       // Call your registration logic here
                                       registerUser(
                                         emailcontroller.text.trim(),

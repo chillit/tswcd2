@@ -94,12 +94,12 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      title: 'NEskuchnoPtr',
+      title: 'КупимВместе',
       theme: ThemeData(
         fontFamily: 'Futura',
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
-        fontFamily: "Futura",
+
         // This is the theme of your application.
         //
         // TRY THIS: Try running your application with "flutter run". You'll see
@@ -269,7 +269,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(67.0),
                                     child: Image.asset(
-                                      'assets/images/ptr_neskuchno.png',
+                                      'assets/images/KupimVmeste.png',
                                       fit: BoxFit.contain,
                                     ),
                                   ),
@@ -277,7 +277,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                               SizedBox(height: 10,),
                               Text(
-                                'Добро пожаловать на NEskuchnoPtr,\nсистему поиска развлечения в Петропавловске',
+                                'Добро пожаловать на КупимВместе,\nсистему покупки товаров',
                                 style: TextStyle(fontFamily: "Futura"),
                                 textAlign: TextAlign.center,
                               ),
@@ -309,7 +309,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                         borderRadius: BorderRadius.circular(67.0),
                                         child: Image.asset(
 
-                                          'assets/images/ptr_neskuchno.png',
+                                          'assets/images/KupimVmeste.png',
                                           fit: BoxFit.contain,
                                         ),
                                       ),
@@ -318,7 +318,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   SizedBox(height: 10,),
 
                                   Text(
-                                    'Добро пожаловать на NEskuchnoPtr,\nсистему поиска развлечения в Петропавловске',
+                                    'Добро пожаловать на КупимВместе,\nсистему покупки товаров',
                                     style: TextStyle(fontFamily: 'Futura'),
                                     textAlign: TextAlign.center,
                                   ),
