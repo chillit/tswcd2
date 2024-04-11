@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data'; // Для Uint8List
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:file/memory.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:tswcd/Pages/Registration_page.dart';
 class resume extends StatefulWidget {
 
@@ -20,12 +21,36 @@ class resume extends StatefulWidget {
 
 class _resumeState extends State<resume> {
   final user = FirebaseAuth.instance.currentUser!;
+  final TextEditingController _categoryController = TextEditingController();
+  final TextEditingController _comment = TextEditingController();
+  final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _discription = TextEditingController();
+  Uint8List? fileBytes;
+  String? fileName;
+  bool isowner = false;
+  late List<String> allusers = [];
+  late List<UserNotification> users = [];
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final DatabaseReference _database = FirebaseDatabase.instance.reference();
+  late List<String> filteredUsers = [];
+  String? selectedUser;
+  List<UserNotification> userUids = [];
+  String selectedemail = "";
+  bool isDrawerOpen = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _formKey = GlobalKey<FormState>();
+  String? selectedProductName;
+  StreamController<List<UserNotification>> _controller = StreamController<List<UserNotification>>.broadcast();
+  final BehaviorSubject<List<UserNotification>> userNotisSubject = BehaviorSubject();
 
-
-
-
-  // sign user in method
-  void signUserIn() {}
+  void updateUserNotisStream(String uid) {
+    getUserNotisStream(uid).listen((data) {
+      userNotisSubject.add(data);
+    });
+  }
+  Stream<List<UserNotification>> getUserNotisStreamm(String uid) {
+    return _controller.stream;
+  }
   final Map<String, List<String>> productsByCategory = {
     'Мясные продукты': ['Куриное филе', 'Говядина', 'Свинина', 'Куриные окорочка', 'Рыба', 'Креветки', 'Мидии'],
     'Овощи': ['Картофель', 'Лук', 'Морковь', 'Капуста', 'Огурцы', 'Помидоры', 'Чеснок', 'Сельдерей', 'Брокколи', 'Грибы'],
@@ -38,11 +63,6 @@ class _resumeState extends State<resume> {
     'Специи и приправы': ['Соус томатный', 'Майонез', 'Горчица', 'Кетчуп', 'Базилик', 'Петрушка', 'Укроп', 'Хрен', 'Имбирь', 'Куркума', 'Корица', 'Мускатный орех', 'Ваниль'],
     'Снеки и быстрые перекусы': ['Чипсы', 'Попкорн'],
   };
-  final TextEditingController _categoryController = TextEditingController();
-  final TextEditingController _comment = TextEditingController();
-  final TextEditingController _dateController = TextEditingController();
-  final TextEditingController _discription = TextEditingController();
-
 
   @override
   void dispose() {
@@ -50,8 +70,6 @@ class _resumeState extends State<resume> {
     _dateController.dispose();
     super.dispose();
   }
-  Uint8List? fileBytes;
-  String? fileName;
 
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
@@ -83,35 +101,53 @@ class _resumeState extends State<resume> {
       });
     }
   }
+
   Future<void> sendDataToDatabase(String? name, String category, String comment, String description, String date, Uint8List fileData, String fileName) async {
     final databaseRef = FirebaseDatabase.instance.ref();
-    final id = DateTime.now().millisecondsSinceEpoch.toString(); // Простой способ генерации уникального ID
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
     final productRef = databaseRef.child('products/${FirebaseAuth.instance.currentUser!.uid}/$id');
 
     try {
-      // Сначала загружаем файл в Firebase Storage и получаем URL изображения
       final ref = FirebaseStorage.instance.ref('products/${FirebaseAuth.instance.currentUser!.uid}/$id/image');
       final result = await ref.putData(fileData);
       final imageUrl = await result.ref.getDownloadURL();
-
-      // Затем сохраняем данные продукта вместе с URL изображения в Firebase Realtime Database
       await productRef.set({
         'name': name,
         'category': category,
         'comment': comment,
         'description': description,
         'date': date,
-        'imageUrl': imageUrl, // Сохраняем URL изображения
+        'imageUrl': imageUrl,
       });
     } catch (e) {
       print(e);
       return;
     }
   }
-  late List<String> allusers = [];
-  late List<String> users = [];
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _database = FirebaseDatabase.instance.reference();
+
+  Future<void> isCurrentUserOwner() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("No user logged in");
+      isowner = false;
+    }
+    final userUid = user!.uid;
+    final databaseReference = FirebaseDatabase.instance.ref();
+
+
+    try {
+      final snapshot = await databaseReference.child('users/$userUid/role').get();
+      if (snapshot.exists && snapshot.value == 'Глава семьи') {
+        isowner = true;
+      } else {
+        isowner = false;
+      }
+    } catch (error) {
+      print("Error checking if user is owner: $error");
+      isowner = false;
+    }
+  }
+
   Future<void> _fetchUsers() async {
     final currentUser = _auth.currentUser;
     if (currentUser != null) {
@@ -124,7 +160,7 @@ class _resumeState extends State<resume> {
 
           if (value['owner'] == currentUserUid) {
             setState(() {
-              users.add(value["name"]);
+              users.add(UserNotification(uid: key, name: value["name"]));
             });
           }
           else{
@@ -135,37 +171,56 @@ class _resumeState extends State<resume> {
     }
   }
   void initState() {
+
     super.initState();
+    updateUserNotisStream(user.uid);
     _fetchUsers();
+    loadUserNotis();
+    isCurrentUserOwner();
   }
-  late List<String> filteredUsers = [];
-  String? selectedUser;
+
   Future<void> handleSubmit() async {
     if (fileBytes != null && fileName != null) {
       await sendDataToDatabase(selectedProductName,_categoryController.text, _comment.text, _discription.text, _dateController.text, fileBytes!, fileName!);
     }
   }
-  void _filterUsers(String query) {
-    setState(() {
-      if (query.isNotEmpty) {
-        filteredUsers = allusers.where((user) => user.contains(query)).toList();
-      } else {
-        filteredUsers = List.from(users);
+  void loadUserNotis() async {
+    final userUid = FirebaseAuth.instance.currentUser?.uid;
+    if (userUid != null) {
+      List<UserNotification> uids = await getUserNotisInfo(userUid);
+      setState(() {
+        userUids = uids;
+      });
+    }
+  }
+  Future<List<UserNotification>> getUserNotisInfo(String userUid) async {
+    final databaseReference = FirebaseDatabase.instance.ref();
+    final snapshot = await databaseReference.child('users/$userUid/notis').get();
+
+    List<UserNotification> usersInfo = [];
+
+    if (snapshot.exists) {
+      Map<dynamic, dynamic> notis = snapshot.value as Map<dynamic, dynamic>;
+
+      for (var uid in notis.keys) {
+        final userSnapshot = await databaseReference.child('users/$uid/name').get();
+        if (userSnapshot.exists) {
+          String name = userSnapshot.value as String;
+          usersInfo.add(UserNotification(uid: uid, name: name));
+        }
       }
-    });
+    }
+
+    return usersInfo;
   }
   Future<String> getUserIdByEmail(String userEmail) async {
     final databaseReference = FirebaseDatabase.instance.ref();
     String userId = '';
-
-    // Предполагается, что структура ваших данных позволяет вам искать по электронной почте напрямую.
-    // Если нет, вам может потребоваться использовать другой подход, например, сначала получить все email и искать среди них.
     final query = databaseReference.child('users').orderByChild('email').equalTo(userEmail);
     DataSnapshot snapshot = await query.get();
 
     if (snapshot.exists) {
       final Map<dynamic, dynamic> users = snapshot.value as Map<dynamic, dynamic>;
-      // Получаем первый ключ, так как orderByChild + equalTo даст нам объект с одним ключом, если email уникален.
       userId = users.keys.first as String;
     } else {
       print("No user found for the provided email");
@@ -174,9 +229,7 @@ class _resumeState extends State<resume> {
     return userId;
   }
   Future<void> _addCurrentUserToSelectedUserNotis(String userEmail) async {
-    // Предположим, что у вас есть способ получения идентификатора пользователя по его электронной почте.
-    // Это может потребовать дополнительного запроса к вашей базе данных.
-    String userId = await getUserIdByEmail(userEmail); // Эту функцию нужно реализовать самостоятельно
+    String userId = await getUserIdByEmail(userEmail);
 
     if (userId.isNotEmpty) {
       final databaseReference = FirebaseDatabase.instance.ref();
@@ -187,13 +240,89 @@ class _resumeState extends State<resume> {
       });
     }
   }
-  String selectedemail = "";
-  bool isDrawerOpen = false;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _formKey = GlobalKey<FormState>();
-  String? selectedProductName;
+  Stream<List<UserNotification>> getUserNotisStream(String userUid) async* {
+    final databaseReference = FirebaseDatabase.instance.ref();
+
+    Stream<DatabaseEvent> stream = databaseReference.child('users/$userUid/notis').onValue;
+
+    await for (var event in stream) {
+      DataSnapshot snapshot = event.snapshot;
+
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> notis = snapshot.value as Map<dynamic, dynamic>;
+        List<Future<UserNotification>> futures = [];
+
+        for (var uid in notis.keys) {
+          futures.add(getUserNameByUid(uid));
+        }
+        List<UserNotification> usersInfo = await Future.wait(futures);
+        yield usersInfo;
+      } else {
+        yield [];
+      }
+    }
+  }
+
+
+  Future<UserNotification> getUserNameByUid(String uid) async {
+    final databaseReference = FirebaseDatabase.instance.ref();
+    final snapshot = await databaseReference.child('users/$uid/name').get();
+
+    if (snapshot.exists) {
+      String name = snapshot.value as String;
+      return UserNotification(uid: uid, name: name);
+    } else {
+      return UserNotification(uid: uid, name: 'Unknown');
+    }
+  }
+  Future<void> acceptUser(String userUid) async {
+    final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserUid == null) return;
+    final databaseReference = FirebaseDatabase.instance.ref();
+    await databaseReference.child('users/$currentUserUid/owner').set(userUid);
+    await databaseReference.child('users/${userUid}/family/${currentUserUid}').set(true);
+    await databaseReference.child('users/$currentUserUid/notis/$userUid').remove();
+  }
+  Future<void> rejectUser(String userUid) async {
+    final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserUid == null) return;
+
+    final databaseReference = FirebaseDatabase.instance.ref();
+
+    await databaseReference.child('users/$currentUserUid/notis/$userUid').remove();
+
+    print("User $userUid rejected");
+  }
+  Future<void> removeUserOwner(String userUid) async {
+    final FirebaseAuth auth = FirebaseAuth.instance;
+    final User? currentUser = auth.currentUser;
+    final databaseReference = FirebaseDatabase.instance.ref();
+    await databaseReference.child('users/$userUid/owner').set("");
+    await databaseReference.child('users/${currentUser!.uid}/family/${userUid}').remove();
+    print("User $userUid owner removed");
+  }
+  Future<String> getUserNameeByUid(String uid) async {
+    final databaseReference = FirebaseDatabase.instance.ref();
+
+    DataSnapshot snapshot = await databaseReference.child('users/$uid/name').get();
+
+    if (snapshot.exists) {
+      return snapshot.value as String;
+    } else {
+      return 'Имя не найдено';
+    }
+  }
   @override
   Widget build(BuildContext context) {
+    final FirebaseAuth auth = FirebaseAuth.instance;
+    final FirebaseDatabase database = FirebaseDatabase.instance;
+    final User? currentUser = auth.currentUser;
+
+    if (currentUser == null) {
+      return Center(child: Text("Пользователь не авторизован"));
+    }
+    String textedit = "";
+    Stream<DatabaseEvent> familyStream = database.ref("users/${currentUser.uid}/family").onValue;
     List<String> allProducts = productsByCategory.values.expand((list) => list).toList();
     return Scaffold(
 
@@ -210,6 +339,7 @@ class _resumeState extends State<resume> {
                   children: [
                     IconButton(
                       onPressed: () {
+                        _fetchUsers();
                         FirebaseAuth.instance.signOut();
                         Navigator.push(
                           context,
@@ -224,15 +354,16 @@ class _resumeState extends State<resume> {
               ),
               IconButton(
                 onPressed: () {
-                  _scaffoldKey.currentState?.openEndDrawer(); // Open the end drawer
+                  _scaffoldKey.currentState?.openEndDrawer();
+                  print(isowner);
                 },
-                icon: Icon(Icons.menu), // Change the icon as needed
+                icon: Icon(Icons.menu),
               ),
             ],
           )
         ],
       ),
-      endDrawer: Drawer(
+      endDrawer: isowner?Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -246,8 +377,11 @@ class _resumeState extends State<resume> {
               children: <Widget>[
                 Autocomplete<String>(
                   optionsBuilder: (TextEditingValue textEditingValue) {
+                    textedit = textEditingValue.text;
                     if (textEditingValue.text == '') {
+                      textedit = textEditingValue.text;
                       return const Iterable<String>.empty();
+
                     }
                     return allusers.where((String option) {
                       return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
@@ -255,22 +389,135 @@ class _resumeState extends State<resume> {
                   },
                   onSelected: (String selection) {
                     selectedemail = selection;
+                    textedit = selection;
                   },
                 ),
                 IconButton(
                     onPressed: (){
-                      _addCurrentUserToSelectedUserNotis(selectedemail);
+                      String emailToUse = selectedemail.isEmpty ? textedit : selectedemail;
+                      if(emailToUse.isNotEmpty) {
+                        _addCurrentUserToSelectedUserNotis(emailToUse);
+                      }
                     },
-                    icon: Icon(Icons.add))
+                    icon: Icon(Icons.add)),
+                Container(
+                  height: 400,
+                  child: StreamBuilder<DatabaseEvent>(
+                    stream: familyStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return Center(child: Text("Ошибка: ${snapshot.error}"));
+                      } else if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+                        return Center(child: Text("Данные отсутствуют"));
+                      } else {
+                        Map<dynamic, dynamic> values = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+                        List<String> uids = values.keys.cast<String>().toList();
+                        return ListView.builder(
+                          itemCount: uids.length,
+                          itemBuilder: (context, index) {
+                            return FutureBuilder<String>(
+                              future: getUserNameeByUid(uids[index]),
+                              builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return ListTile(
+                                    title: Text("Загрузка..."),
+                                  );
+                                } else if (snapshot.hasError) {
+                                  return ListTile(
+                                    title: Text("Ошибка: ${snapshot.error}"),
+                                  );
+                                } else {
+                                  return ListTile(
+                                    title: Text(snapshot.data ?? "Никнейм не найден"),
+                                    onTap: (){
+                                      showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text('Удалить пользователя?'),
+                                          content: Text('Вы уверены, что хотите удалить этого пользователя?'),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: Text('Отмена'),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                            ),
+                                            TextButton(
+                                              child: Text('Удалить'),
+                                              onPressed: () {
+
+                                                removeUserOwner(uids[index]).then((_) => Navigator.of(context).pop());
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },);
+                                    },
+                                  );
+
+                                }
+                              },
+                            );
+                          },
+                        );
+                      }
+                    },
+                  ),
+                ),
+
               ],
             ),
-            for (var user in users)
-              ListTile(
-                title: Text(user),
-                onTap: () {
-                  // Handle tapping on the user item
+
+          ],
+        ),
+      ):Drawer(
+        child: Column(
+          children: [
+            Container(
+              height: 700,
+              child: StreamBuilder<List<UserNotification>>(
+                stream: userNotisSubject.stream,
+                builder: (BuildContext context, AsyncSnapshot<List<UserNotification>> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else if (snapshot.data == null || snapshot.data!.isEmpty) {
+                    return Text('No data');
+                  } else {
+                    return ListView.builder(
+                      itemCount: snapshot.data!.length,
+                      itemBuilder: (context, index) {
+                        final userNoti = snapshot.data![index];
+                        return ListTile(
+                          title: Text(userNoti.name),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.check),
+                                onPressed: () {
+                                  acceptUser(userNoti.uid);
+                                },
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.close),
+                                onPressed: () {
+                                  rejectUser(userNoti.uid);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  }
                 },
               ),
+            ),
           ],
         ),
       ),
@@ -288,12 +535,11 @@ class _resumeState extends State<resume> {
 
                   const SizedBox(height: 0),
 
-                  // logo
                   Container(
                     width: MediaQuery.of(context).size.width.clamp(0, 400),
                     height: MediaQuery.of(context).size.width.clamp(0, 400),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(67), // Adjust the radius as per your requirement
+                      borderRadius: BorderRadius.circular(67),
                       image: DecorationImage(
                         image: AssetImage('assets/images/KupimVmeste.png'),
                         fit: BoxFit.cover,
@@ -303,7 +549,6 @@ class _resumeState extends State<resume> {
 
                   const SizedBox(height: 20),
 
-                  // welcome back, you've been missed!
                   Text(
                     'Добро пожаловать, ${user.email} ',
                     style: TextStyle(
@@ -329,7 +574,7 @@ class _resumeState extends State<resume> {
                               });
                             },
                             onSelected: (String selection) {
-                              // Находим категорию для выбранного продукта
+
                               String category = productsByCategory.keys.firstWhere(
                                     (k) => productsByCategory[k]!.contains(selection),
                                 orElse: () => 'Категория не найдена',
@@ -339,11 +584,10 @@ class _resumeState extends State<resume> {
                               selectedProductName = selection;
                             },
                             fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                              // This condition checks if the device screen width is 600 or more, indicating desktop or large tablet.
+
                               bool isWeb = MediaQuery.of(context).size.width >= 600;
 
-                              // Adjust border color based on the device type (desktop or mobile).
-                              Color borderColor =  Colors.black; // Black for desktop, white for mobile.
+                              Color borderColor =  Colors.black;
 
                               return Container(
                                 height: 50,
@@ -354,7 +598,7 @@ class _resumeState extends State<resume> {
                                   focusNode: focusNode,
                                   decoration: InputDecoration(
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(color: borderColor), // Dynamic border color based on the device type.
+                                      borderSide: BorderSide(color: borderColor),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderSide: BorderSide(color: Colors.black,width: 2),
@@ -373,7 +617,7 @@ class _resumeState extends State<resume> {
                                 child: Material(
                                   elevation: 4.0,
                                   child: Container(
-                                    width: 300, // Adjust the width as needed
+                                    width: 300,
                                     child: ListView.builder(
                                       shrinkWrap: true,
                                       itemCount: options.length,
@@ -394,7 +638,6 @@ class _resumeState extends State<resume> {
                           ),
                         ),
                         SizedBox(height: 25),
-                        // Текстовое поле для отображения выбранной категории
                         MyTextField(
                           controller: _categoryController,
                            needToValidate: true, hintText: 'Категория', obscureText: false,
@@ -681,4 +924,11 @@ class Field extends StatelessWidget {
       ),
       const SizedBox(height: 10),],);
   }
+}
+class UserNotification {
+  final String uid;
+  final String name;
+  final String? email;
+
+  UserNotification({required this.uid,required this.name, this.email});
 }
