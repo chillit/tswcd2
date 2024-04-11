@@ -28,10 +28,17 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  firebase_core: any
   flutter:
     sdk: flutter
-
+  url_launcher: ^6.0.9
+  flutter_localization: any
+  firebase_core: any
+  firebase_database: ^10.2.3
+  firebase_auth: ^4.4.2
+  cloud_firestore: any
+  cloud_functions: ^4.3.3
+  table_calendar: any
+  awesome_dialog: any
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -40,6 +47,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

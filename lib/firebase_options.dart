@@ -52,6 +52,7 @@ class DefaultFirebaseOptions {
   static const FirebaseOptions web = FirebaseOptions(
       apiKey: "AIzaSyANfq_jphHTILCr_EsWILKpdlQn-2BcEI4",
       authDomain: "tswcd2-87a16.firebaseapp.com",
+      databaseURL: "https://tswcd2-87a16-default-rtdb.firebaseio.com",
       projectId: "tswcd2-87a16",
       storageBucket: "tswcd2-87a16.appspot.com",
       messagingSenderId: "886894692072",
