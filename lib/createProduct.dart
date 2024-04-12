@@ -376,7 +376,10 @@ class _resumeState extends State<resume> {
                 animType: AnimType.bottomSlide,
                 title: 'Успех',
                 desc: 'Товар успешно добавлен!',
-                btnOkOnPress: () {},
+                btnOkOnPress: () {
+
+                },
+                width: MediaQuery.of(context).size.width>=600?600:MediaQuery.of(context).size.width
               )
                 ..show();
               _categoryController.clear();
@@ -401,6 +404,8 @@ class _resumeState extends State<resume> {
       );
     }
   }
+
+
   Future<void> handleSubmitAnimalter(BuildContext context,String owner) async {
     if (_formKey.currentState!.validate() && isFilePicked) {
       String? productValidationResult = validateProduct(
@@ -430,7 +435,11 @@ class _resumeState extends State<resume> {
                 animType: AnimType.bottomSlide,
                 title: 'Успех',
                 desc: 'Товар успешно добавлен!',
-                btnOkOnPress: () {},
+                btnOkOnPress: () {
+
+                },
+                  width: MediaQuery.of(context).size.width>=600?600:MediaQuery.of(context).size.width
+
               )
                 ..show();
               _categoryController.clear();
