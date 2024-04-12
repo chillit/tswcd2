@@ -102,6 +102,14 @@ class _resumeState extends State<resume> {
       userNotisSubject.add(data);
     });
   }
+  bool isCount(int count)
+  {
+    if(count<1000 && count>0)
+      return true;
+    else
+      return false;
+  }
+
   final Map<String, List<String>> productsByCategory = {
     'Мясные продукты': ['Куриное филе', 'Говядина', 'Свинина', 'Куриные окорочка', 'Рыба', 'Креветки', 'Мидии'],
     'Овощи': ['Картофель', 'Лук', 'Морковь', 'Капуста', 'Огурцы', 'Помидоры', 'Чеснок', 'Сельдерей', 'Брокколи', 'Грибы'],
@@ -351,119 +359,141 @@ class _resumeState extends State<resume> {
       }
 
       bool isLoading = false; // Состояние для отслеживания загрузки
-  Future<void> handleSubmitAnim(BuildContext context) async {
-    if (_formKey.currentState!.validate() && isFilePicked) {
-      String? productValidationResult = validateProduct(
-          selectedProductName);
-      if (productValidationResult == null) {
-        if (fileBytes != null && fileName != null) {
-          setState(() {
-            isLoading = true; // Начинаем показ индикатора загрузки
-          });
-          try {
-            bool success = await sendDataToDatabase(
-                selectedProductName!,
-                _categoryController.text,
-                _comment.text,
-                _discription.text,
-                _dateController.text,
-                fileBytes!,
-                fileName!,
-                int.parse(count.text)
-            );
-            if (success) {
-              AwesomeDialog(
-                context: context,
-                dialogType: DialogType.success,
-                animType: AnimType.bottomSlide,
-                title: 'Успех',
-                desc: 'Товар успешно добавлен!',
-                btnOkOnPress: () {
+  Future<void> handleSubmitAnim(BuildContext context,int counter) async {
+    if(isCount(counter))
+      {
+        if (_formKey.currentState!.validate() && isFilePicked && isCount(counter)) {
+          String? productValidationResult = validateProduct(
+              selectedProductName);
+          if (productValidationResult == null) {
+            if (fileBytes != null && fileName != null) {
+              setState(() {
+                isLoading = true; // Начинаем показ индикатора загрузки
+              });
+              try {
+                bool success = await sendDataToDatabase(
+                    selectedProductName!,
+                    _categoryController.text,
+                    _comment.text,
+                    _discription.text,
+                    _dateController.text,
+                    fileBytes!,
+                    fileName!,
+                    int.parse(count.text)
+                );
+                if (success) {
+                  AwesomeDialog(
+                      context: context,
+                      dialogType: DialogType.success,
+                      animType: AnimType.bottomSlide,
+                      title: 'Успех',
+                      desc: 'Товар успешно добавлен!',
+                      btnOkOnPress: () {
 
-                },
-                width: MediaQuery.of(context).size.width>=600?600:MediaQuery.of(context).size.width
-              )
-                ..show();
-              _categoryController.clear();
-              _comment.clear();
-              _discription.clear();
-              _dateController.clear();
-              count.clear();
-            } else {
-              // Обработка неудачной отправки данных
+                      },
+                      width: MediaQuery.of(context).size.width>=600?600:MediaQuery.of(context).size.width
+                  )
+                    ..show();
+                  _categoryController.clear();
+                  _comment.clear();
+                  _discription.clear();
+                  _dateController.clear();
+                  count.clear();
+                  isFilePicked=false;
+                } else {
+                  // Обработка неудачной отправки данных
+                }
+              } finally {
+                setState(() {
+                  isLoading = false; // Заканчиваем показ индикатора загрузки
+                });
+              }
             }
-          } finally {
-            setState(() {
-              isLoading = false; // Заканчиваем показ индикатора загрузки
-            });
           }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(
+                  'Пожалуйста, выберите файл перед добавлением товара!'))
+          );
         }
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(
-              'Пожалуйста, выберите файл перед добавлением товара!'))
-      );
-    }
+    else
+      {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(
+                'Пожалуйста, проверьте данные с количеством!'))
+        );
+      }
+
   }
 
 
-  Future<void> handleSubmitAnimalter(BuildContext context,String owner) async {
-    if (_formKey.currentState!.validate() && isFilePicked) {
-      String? productValidationResult = validateProduct(
-          selectedProductName);
-      if (productValidationResult == null) {
-        if (fileBytes != null && fileName != null) {
-          setState(() {
-            isLoading = true; // Начинаем показ индикатора загрузки
-          });
-          try {
-            bool success = await sendDataToDatabasealter(
+  Future<void> handleSubmitAnimalter(BuildContext context,String owner,int counter) async {
+    if(isCount(counter))
+      {
+        print("dfsdfsf");
+        if (_formKey.currentState!.validate() && isFilePicked && isCount(counter)) {
+          String? productValidationResult = validateProduct(
+              selectedProductName);
+          if (productValidationResult == null) {
+            if (fileBytes != null && fileName != null) {
+              setState(() {
+                isLoading = true; // Начинаем показ индикатора загрузки
+              });
+              try {
+                bool success = await sendDataToDatabasealter(
 
-                selectedProductName!,
-                _categoryController.text,
-                _comment.text,
-                _discription.text,
-                _dateController.text,
-                fileBytes!,
-                fileName!,
-                int.parse(count.text),
-              owner
-            );
-            if (success) {
-              AwesomeDialog(
-                context: context,
-                dialogType: DialogType.success,
-                animType: AnimType.bottomSlide,
-                title: 'Успех',
-                desc: 'Товар успешно добавлен!',
-                btnOkOnPress: () {
+                    selectedProductName!,
+                    _categoryController.text,
+                    _comment.text,
+                    _discription.text,
+                    _dateController.text,
+                    fileBytes!,
+                    fileName!,
+                    int.parse(count.text),
+                    owner
+                );
+                if (success) {
+                  AwesomeDialog(
+                      context: context,
+                      dialogType: DialogType.success,
+                      animType: AnimType.bottomSlide,
+                      title: 'Успех',
+                      desc: 'Товар успешно добавлен!',
+                      btnOkOnPress: () {
 
-                },
-                  width: MediaQuery.of(context).size.width>=600?600:MediaQuery.of(context).size.width
+                      },
+                      width: MediaQuery.of(context).size.width>=600?600:MediaQuery.of(context).size.width
 
-              )
-                ..show();
-              _categoryController.clear();
-              _comment.clear();
-              _discription.clear();
-              _dateController.clear();
-            } else {
-              // Обработка неудачной отправки данных
+                  )
+                    ..show();
+                  _categoryController.clear();
+                  _comment.clear();
+                  _discription.clear();
+                  _dateController.clear();
+                } else {
+                  // Обработка неудачной отправки данных
+                }
+              } finally {
+                setState(() {
+                  isLoading = false; // Заканчиваем показ индикатора загрузки
+                });
+              }
             }
-          } finally {
-            setState(() {
-              isLoading = false; // Заканчиваем показ индикатора загрузки
-            });
           }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(
+                  'Пожалуйста, выберите файл перед добавлением товара!'))
+          );
         }
       }
-    } else {
+    else{
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(
-              'Пожалуйста, выберите файл перед добавлением товара!'))
-      );
+              'Пожалуйста, проверьте данные с количеством!')));
     }
+
   }
 
       void _filterUsers(String query) {
@@ -1234,7 +1264,7 @@ class _resumeState extends State<resume> {
                         children: [
                           ElevatedButton(
                             onPressed: () {
-                              isalter?handleSubmitAnimalter(context,selectedowner!.owner):handleSubmitAnim(context);
+                              isalter?handleSubmitAnimalter(context,selectedowner!.owner,int.parse(count.text)):handleSubmitAnim(context,int.parse(count.text));
                             },
                             style: ElevatedButton.styleFrom(
                               primary: Colors.black, // Background color
