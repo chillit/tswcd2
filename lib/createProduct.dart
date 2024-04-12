@@ -15,6 +15,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tswcd/Pages/Registration_page.dart';
+import 'package:tswcd/Pages/eventsList.dart';
 import 'package:tswcd/main.dart';
 class resume extends StatefulWidget {
   final bool? from;
@@ -273,11 +274,12 @@ class _resumeState extends State<resume> {
   void initState() {
 
     super.initState();
+    isCurrentUserOwner();
     widget.from!?_startLoading():null;
     updateUserNotisStream(user.uid);
     _fetchUsers();
     loadUserNotis();
-    isCurrentUserOwner();
+
     fetchProducts();
   }
   void _startLoading() async {
@@ -573,7 +575,7 @@ class _resumeState extends State<resume> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => resume(from: false,)),
+                MaterialPageRoute(builder: (context) => ProductList()),
               );
               print('Button Pressed!');
             },

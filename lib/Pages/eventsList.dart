@@ -77,10 +77,11 @@ class _ProductListState extends State<ProductList> {
 
   void initState() {
     super.initState();
+    isCurrentUserOwner();
     widget.from!?_startLoading():null;
     final currentUser = _auth.currentUser;
     currentUseruid = _auth.currentUser!.uid;
-    isCurrentUserOwner();
+    
     if (currentUser != null) {
       databaseReference = FirebaseDatabase.instance.reference().child('products/${currentUser.uid}');
     }
