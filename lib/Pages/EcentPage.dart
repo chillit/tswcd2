@@ -136,6 +136,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                       if (screenWidth>screenHeight) {
                         crossAxisCount = 4;
                       }
+                      Map<String, dynamic> productsMap = snapshot.data!.snapshot.value as Map<String, dynamic>;
+                      List<dynamic> products = productsMap.values.toList();
+                      List<String> ids = productsMap.keys.toList();
 
                       return Align(
                         alignment: Alignment.center,
@@ -150,11 +153,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                             itemCount: events.length,
                             itemBuilder: (BuildContext context, int index) {
+                              var product = products[index];
+                              var id = ids[index];
                               return GestureDetector(
                                 onTap: () {
 
                                 },
-
                                 child: Card(
                                   child: Padding(
                                     padding: EdgeInsets.all(16.0),
@@ -166,9 +170,17 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                           )
                                         ),
                                         SizedBox(height: 8.0),
-                                        Text(
-                                          events[index]['name'],
-                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                events[index]['name'],
+                                                style: TextStyle(fontWeight: FontWeight.bold),
+                                              ),
+                                              CheckedButton(owner: widget.owner,id:widget.uid,counts: events[index]["count"],),
+                                            ],
+                                          ),
                                         ),
                                         SizedBox(height: 8.0),
                                         Text(events[index]['comment']),
@@ -194,5 +206,91 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ),
       ),
     );
+  }
+}
+class CheckedButton extends StatefulWidget {
+  String owner;
+  String id;
+  int counts;
+  CheckedButton({required this.owner,required this.id,required this.counts});
+  @override
+  _CheckedButtonState createState() => _CheckedButtonState();
+}
+
+class _CheckedButtonState extends State<CheckedButton> {
+  bool isChecked = false;
+  DatabaseReference? databaseReference = FirebaseDatabase.instance.ref();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  widget.counts++;
+                  updateCount();
+                });
+              },
+              icon: Icon(Icons.add),
+            ),
+            Text(
+              widget.counts.toString(),
+              style: TextStyle(fontSize: 20),
+            ),
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  if (widget.counts > 0) {
+                    widget.counts--;
+                    updateCount();
+                    if(widget.counts <= 0){
+                      String path = 'products/${widget.owner}/${widget.id}';
+                      databaseReference!.child(path).remove();
+                    }
+                    Navigator.pop(context);
+                  }
+                });
+              },
+              icon: Icon(Icons.remove),
+            ),
+          ],
+        ),
+        InkWell(
+          onTap: () {
+            setState(() {
+              String path = 'products/${widget.owner}/${widget.id}';
+              print(path);
+              databaseReference!.child(path).remove();
+              Navigator.pop(context);
+            });
+          },
+          child: Container(
+            padding: EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.grey,
+                width: 2.0,
+              ),
+            ),
+            child:Icon(
+              Icons.check_box_outline_blank,
+              color: Colors.grey,
+              size: 20.0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void updateCount() {
+    // Update count in the database
+    String countPath = 'products/${widget.owner}/${widget.id}/count';
+    databaseReference!.child(countPath).set(widget.counts);
   }
 }

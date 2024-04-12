@@ -3,8 +3,7 @@ import 'dart:io';
 
 import 'dart:typed_data'; // Для Uint8List
 import 'package:awesome_dialog/awesome_dialog.dart';
-
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:file/memory.dart';
@@ -190,6 +189,7 @@ class _resumeState extends State<resume> {
   }
 
 
+
   Future<void> isCurrentUserOwner() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -268,14 +268,26 @@ class _resumeState extends State<resume> {
       });
     }
   }
+  bool _loading = true;
   void initState() {
 
     super.initState();
+    _startLoading();
     updateUserNotisStream(user.uid);
     _fetchUsers();
     loadUserNotis();
     isCurrentUserOwner();
     fetchProducts();
+  }
+  void _startLoading() async {
+    // Wait for 1 second
+    await Future.delayed(Duration(seconds: 2));
+    // Change the state to hide CircularProgressIndicator
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
   }
   Future<void> fetchProducts() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -544,7 +556,7 @@ class _resumeState extends State<resume> {
             .onValue;
         List<String> allProducts = productsByCategory.values.expand((
             list) => list).toList();
-        return Scaffold(
+        return _loading ? Center(child: CircularProgressIndicator()) :Scaffold(
 
           backgroundColor: Colors.white,
 
