@@ -96,11 +96,9 @@ class _MyHomePageState extends State<Registration> {
       // After successful registration, UID is available from `userCredential.user`
       String uid = userCredential.user!.uid;
       await addUserToRealtimeDatabase(uid, name, email);
-
-      // Navigate to the next page here
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => resume(), // Replace with your next page
+          builder: (context) => resume(from: true,), // Replace with your next page
         ),
       );
 
@@ -111,6 +109,17 @@ class _MyHomePageState extends State<Registration> {
       } else if (e.code == 'email-already-in-use') {
         SnackBarService.showSnackBar(context, 'Аккаунт с такой эл. почтой уже существует.', true);
       }
+    }
+  }
+  bool loading = false;
+  void _startLoading() async {
+    // Wait for 1 second
+    await Future.delayed(Duration(seconds: 2));
+    // Change the state to hide CircularProgressIndicator
+    if (mounted) {
+      setState(() {
+        loading = false;
+      });
     }
   }
 
@@ -139,7 +148,7 @@ class _MyHomePageState extends State<Registration> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return loading?Center(child: CircularProgressIndicator(),):Scaffold(
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
       body: SafeArea(

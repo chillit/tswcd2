@@ -40,6 +40,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     // TODO: implement initState
     super.initState();
     databaseReferencee = FirebaseDatabase.instance.ref('products/${widget.owner}/${widget.uid}/alter');
+    print('products/${widget.owner}/${widget.uid}/alter');
   }
 
   @override
@@ -116,7 +117,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               StreamBuilder<DatabaseEvent>(
                 stream: databaseReferencee.onValue,
                 builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data != null) {
+                  if (snapshot.hasData && snapshot.data != null && snapshot.data=="") {
                     DataSnapshot dataValues = snapshot.data!.snapshot;
                     if (dataValues.value != null) {
                       List<dynamic> events = [];
@@ -197,7 +198,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                       return Center(child: Text('Данные не найдены'));
                     }
                   } else {
-                    return Center(child: CircularProgressIndicator());
+                    return Center(child: Text("Нет альтернатив", style: TextStyle(fontSize: 30),));
                   }
                 },
               ),

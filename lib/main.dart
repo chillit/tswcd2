@@ -33,7 +33,7 @@ void main() async{
     options: DefaultFirebaseOptions.currentPlatform,
   );
   User? currentUser = FirebaseAuth.instance.currentUser;
-  runApp(MyApp(home: currentUser == null ? MyHomePage() : resume()));
+  runApp(MyApp(home: currentUser == null ? MyHomePage() : ProductList()));
 }
 
 class MyApp extends StatefulWidget {

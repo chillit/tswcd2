@@ -17,8 +17,8 @@ import 'package:rxdart/rxdart.dart';
 import 'package:tswcd/Pages/Registration_page.dart';
 import 'package:tswcd/main.dart';
 class resume extends StatefulWidget {
-
-  resume({super.key});
+  final bool? from;
+  resume({this.from});
 
   @override
   State<resume> createState() => _resumeState();
@@ -88,7 +88,7 @@ class _resumeState extends State<resume> {
           String name = nameSnapshot.exists ? nameSnapshot.value as String : 'Имя не найдено';
           String email = emailSnapshot.exists ? emailSnapshot.value as String : 'Email не найден';
 
-          usersInfo.add(UserNotification(uid: userUid, name: name,email: email));
+          usersInfo.add(UserNotification(uid: uid, name: name,email: email));
         }
         yield usersInfo;
       } else {
@@ -269,11 +269,11 @@ class _resumeState extends State<resume> {
       });
     }
   }
-  bool _loading = true;
+  bool _loading = false;
   void initState() {
 
     super.initState();
-    _startLoading();
+    widget.from!?_startLoading():null;
     updateUserNotisStream(user.uid);
     _fetchUsers();
     loadUserNotis();
@@ -281,6 +281,7 @@ class _resumeState extends State<resume> {
     fetchProducts();
   }
   void _startLoading() async {
+    _loading = true;
     // Wait for 1 second
     await Future.delayed(Duration(seconds: 2));
     // Change the state to hide CircularProgressIndicator
