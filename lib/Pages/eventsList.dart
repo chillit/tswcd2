@@ -11,6 +11,9 @@ import '../createProduct.dart';
 import '../main.dart';
 import 'Registration_page.dart';
 class ProductList extends StatefulWidget {
+  final bool from;
+
+  ProductList({this.from = false});
   @override
   _ProductListState createState() => _ProductListState();
 }
@@ -22,6 +25,7 @@ class _ProductListState extends State<ProductList> {
   DatabaseReference? databaseReference;
   String currentUseruid = "";
   String selectedemail = "";
+  bool _loading = false;
   final DatabaseReference _database = FirebaseDatabase.instance.reference();
   final BehaviorSubject<List<UserNotification>> userNotisSubject = BehaviorSubject();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -73,6 +77,7 @@ class _ProductListState extends State<ProductList> {
 
   void initState() {
     super.initState();
+    widget.from!?_startLoading():null;
     final currentUser = _auth.currentUser;
     currentUseruid = _auth.currentUser!.uid;
     isCurrentUserOwner();
@@ -83,6 +88,17 @@ class _ProductListState extends State<ProductList> {
     _fetchUsers();
     loadUserNotis();
     isCurrentUserOwner();
+  }
+  void _startLoading() async {
+    _loading = true;
+    // Wait for 1 second
+    await Future.delayed(Duration(seconds: 2));
+    // Change the state to hide CircularProgressIndicator
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
   }
   Stream<List<UserNotification>> getUserNotisStream(String userUid) async* {
     final databaseReference = FirebaseDatabase.instance.ref();
@@ -164,6 +180,10 @@ class _ProductListState extends State<ProductList> {
         'users/${userUid}/family/${currentUserUid}').set(true);
     await databaseReference.child('users/$currentUserUid/notis/$userUid')
         .remove();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ProductList(from: true)),
+    );
   }
   Future<void> rejectUser(String userUid) async {
     final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
@@ -175,6 +195,10 @@ class _ProductListState extends State<ProductList> {
         .remove();
 
     print("User $userUid rejected");
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ProductList()),
+    );
   }
   Future<void> isCurrentUserOwner() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -254,7 +278,7 @@ class _ProductListState extends State<ProductList> {
         .onValue;
     bool isDesktop(BuildContext context) => MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
     String textedit = "";
-    return Scaffold(
+    return _loading ? Center(child: CircularProgressIndicator()) :Scaffold(
       key: _scaffoldKey,
       floatingActionButton: isowner?FloatingActionButton(
         onPressed: () {
@@ -468,6 +492,7 @@ class _ProductListState extends State<ProductList> {
                                 } else {
                                   tileContent = ListTile(
                                     title: Text(snapshot.data!.name ?? "Никнейм не найден"),
+                                    subtitle: Text(snapshot.data!.email ?? ""),
                                     onTap: () {
                                       showDialog(
                                         context: context,
@@ -593,7 +618,29 @@ class _ProductListState extends State<ProductList> {
                 },
               ),
             ),
+            Row(
+              children: [
+                Expanded(
+                  child: Divider(
+                    thickness: 0.5,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsetsDirectional.only(start: 10, end: 10),
+                  child: Text("Фильтр"),
+                ),
+                Expanded(
+                  child: Divider(
+                    thickness: 0.5,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10,),
             _buildCategoryFilters(),
+            SizedBox(height: 10,)
           ],
         ),
       ),
@@ -628,7 +675,7 @@ class _ProductListState extends State<ProductList> {
                   List<dynamic> filteredProducts = productsMap.entries
                       .where((entry) =>
                   (_selectedCategories.isEmpty || _selectedCategories.contains(entry.value['category'])) &&
-                      (entry.value['name'].toLowerCase().contains(_searchQuery)))
+                      (entry.value['name'] != null && entry.value['name'].toLowerCase().contains(_searchQuery)))
                       .map((e) => e.value)
                       .toList();
 
@@ -683,7 +730,7 @@ class _ProductListState extends State<ProductList> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        product['name'] ?? 'Название не указано',
+                                        product['name'] ?? 'Name not specified',
                                         style: TextStyle(fontWeight: FontWeight.bold),
                                         overflow: TextOverflow.ellipsis,
                                       ),
