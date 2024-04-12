@@ -66,7 +66,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         ),
                         SizedBox(height: 10),
                         Text(
-                          '${widget.type == "charity"?"Благотворительноость":widget.type == "sport"?"Спорт":widget.type == "culture"?"Культура":widget.type == "study"?"Учеба":widget.type == "IT"?"IT":widget.type == "comedy"?"Комедия":widget.type == "music"?"Музыка":""}',
+                          '${widget.type}',
                           style: TextStyle(fontSize: 18),
                         ),
                         SizedBox(height: 10),
@@ -129,10 +129,6 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         });
                       }
 
-                      events = events.where((event) {
-                        DateTime eventDate = DateTime.parse(event['date']);
-                        return (widget.type.contains(event['type']) && widget.title!=event["title"]);
-                      }).toList();
 
                       final double screenWidth = MediaQuery.of(context).size.width;
                       final double screenHeight = MediaQuery.of(context).size.height;
@@ -165,18 +161,17 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     child: Column(
                                       children: <Widget>[
                                         Expanded(
-                                          child: Icon(
-                                            Icons.add,
-                                            size: 100,
-                                          ),
+                                          child: Image.network(
+                                              events[index]['imageUrl']
+                                          )
                                         ),
                                         SizedBox(height: 8.0),
                                         Text(
-                                          events[index]['title'],
+                                          events[index]['name'],
                                           style: TextStyle(fontWeight: FontWeight.bold),
                                         ),
                                         SizedBox(height: 8.0),
-                                        Text(events[index]['small_description']),
+                                        Text(events[index]['comment']),
                                       ],
                                     ),
                                   ),

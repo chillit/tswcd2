@@ -79,12 +79,18 @@ class _resumeState extends State<resume> {
       if (snapshot.exists) {
         Map<dynamic, dynamic> notis = snapshot.value as Map<dynamic,
             dynamic>;
-        List<Future<UserNotification>> futures = [];
+        List<UserNotification> usersInfo = [];
 
         for (var uid in notis.keys) {
-          futures.add(getUserNameByUid(uid));
+          final databaseReference = FirebaseDatabase.instance.ref();
+          DataSnapshot nameSnapshot = await databaseReference.child('users/$uid/name').get();
+          DataSnapshot emailSnapshot = await databaseReference.child('users/$uid/email').get();
+
+          String name = nameSnapshot.exists ? nameSnapshot.value as String : 'Имя не найдено';
+          String email = emailSnapshot.exists ? emailSnapshot.value as String : 'Email не найден';
+
+          usersInfo.add(UserNotification(uid: userUid, name: name,email: email));
         }
-        List<UserNotification> usersInfo = await Future.wait(futures);
         yield usersInfo;
       } else {
         yield [];
@@ -220,7 +226,7 @@ class _resumeState extends State<resume> {
         usersMap.forEach((key, value) {
           if (value['owner'] == currentUserUid) {
             setState(() {
-              users.add(UserNotification(uid: key, name: value["name"]));
+              users.add(UserNotification(uid: key, name: value["name"],email: value["email"]));
             });
           } else {
             if (value["role"] == "Член семьи") {
@@ -514,18 +520,16 @@ class _resumeState extends State<resume> {
             'users/${currentUser!.uid}/family/${userUid}').remove();
         print("User $userUid owner removed");
       }
-      Future<String> getUserNameeByUid(String uid) async {
+      Future<UserNotification> getUserNameeByUid(String uid) async {
         final databaseReference = FirebaseDatabase.instance.ref();
+        DataSnapshot nameSnapshot = await databaseReference.child('users/$uid/name').get();
+        DataSnapshot emailSnapshot = await databaseReference.child('users/$uid/email').get();
 
-        DataSnapshot snapshot = await databaseReference.child('users/$uid/name')
-            .get();
+        String name = nameSnapshot.exists ? nameSnapshot.value as String : 'Имя не найдено';
+        String email = emailSnapshot.exists ? emailSnapshot.value as String : 'Email не найден';
 
-        if (snapshot.exists) {
-          return snapshot.value as String;
-        } else {
-          return 'Имя не найдено';
-        }
-      }
+        return UserNotification(uid:uid,name: name, email: email);
+  }
       @override
       Widget build(BuildContext context) {
         final FirebaseAuth auth = FirebaseAuth.instance;
@@ -715,16 +719,14 @@ class _resumeState extends State<resume> {
                               snapshot.data!.snapshot.value == null) {
                             return Center(child: Text("Данные отсутствуют"));
                           } else {
-                            Map<dynamic, dynamic> values = snapshot.data!
-                                .snapshot.value as Map<dynamic, dynamic>;
-                            List<String> uids = values.keys.cast<String>()
-                                .toList();
+                            Map<dynamic, dynamic> values = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+                            List<String> uids = values.keys.cast<String>().toList();
                             return ListView.builder(
                               itemCount: uids.length,
                               itemBuilder: (context, index) {
-                                return FutureBuilder<String>(
+                                return FutureBuilder<UserNotification>(
                                   future: getUserNameeByUid(uids[index]),
-                                  builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+                                  builder: (BuildContext context, AsyncSnapshot<UserNotification> snapshot) {
                                     Widget tileContent;
                                     if (snapshot.connectionState == ConnectionState.waiting) {
                                       tileContent = ListTile(
@@ -736,7 +738,7 @@ class _resumeState extends State<resume> {
                                       );
                                     } else {
                                       tileContent = ListTile(
-                                        title: Text(snapshot.data ?? "Никнейм не найден"),
+                                        title: Text(snapshot.data!.name ?? "Никнейм не найден"),
                                         onTap: () {
                                           showDialog(
                                             context: context,
@@ -834,6 +836,7 @@ class _resumeState extends State<resume> {
                             final userNoti = snapshot.data![index];
                             return ListTile(
                               title: Text(userNoti.name),
+                              subtitle: Text(userNoti.email ?? ""),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
