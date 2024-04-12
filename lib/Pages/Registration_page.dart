@@ -98,7 +98,7 @@ class _MyHomePageState extends State<Registration> {
       await addUserToRealtimeDatabase(uid, name, email);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => resume(from: true,), // Replace with your next page
+          builder: (context) => ProductList(), // Replace with your next page
         ),
       );
 

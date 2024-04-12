@@ -26,6 +26,7 @@ class _ProductListState extends State<ProductList> {
   final BehaviorSubject<List<UserNotification>> userNotisSubject = BehaviorSubject();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<UserNotification> userUids = [];
+  String _searchQuery = '';
   void updateUserNotisStream(String uid) {
     getUserNotisStream(uid).listen((data) {
       userNotisSubject.add(data);
@@ -64,6 +65,12 @@ class _ProductListState extends State<ProductList> {
       });
     }
   }
+  List<String> _selectedCategories = [];
+  List<String> categories = [
+    'Мясные продукты', 'Овощи', 'Фрукты и ягоды', 'Молочные продукты', 'Бакалея',
+    'Напитки', 'Выпечка и сладости', 'консервированные продукты', 'Специи и приправы'
+  ];
+
   void initState() {
     super.initState();
     final currentUser = _auth.currentUser;
@@ -496,6 +503,8 @@ class _ProductListState extends State<ProductList> {
                     },
                   ),
                 ),
+                _buildCategoryFilters(),
+                SizedBox(height:20),
 
               ],
             ),
@@ -527,7 +536,7 @@ class _ProductListState extends State<ProductList> {
               ],
             ),
             Container(
-              height: MediaQuery.of(context).size.height*0.7,
+              height: MediaQuery.of(context).size.height*0.5,
               child: StreamBuilder<List<UserNotification>>(
                 stream: userNotisSubject.stream,
                 builder: (BuildContext context,
@@ -572,91 +581,138 @@ class _ProductListState extends State<ProductList> {
                 },
               ),
             ),
+            _buildCategoryFilters(),
           ],
         ),
       ),
       body: databaseReference == null
           ? Center(child: Text("Пользователь не аутентифицирован"))
-          : StreamBuilder<DatabaseEvent>(
-        stream: databaseReference!.onValue,
-        builder: (context, snapshot) {
-          if (snapshot.hasData && !snapshot.hasError && snapshot.data!.snapshot.value != null) {
-            Map<String, dynamic> productsMap = snapshot.data!.snapshot.value as Map<String, dynamic>;
-            List<dynamic> products = productsMap.values.toList();
-            List<String> ids = productsMap.keys.toList();
-
-            return GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: MediaQuery.of(context).size.width>=1200 ? 5:2, // Количество столбцов
-                childAspectRatio: 1, // Соотношение сторон плитки
+          : Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              decoration: InputDecoration(
+                labelText: 'Search by product name',
+                border: OutlineInputBorder(),
+                suffixIcon: Icon(Icons.search),
               ),
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                var product = products[index];
-                var id = ids[index];
-                var imageRef = "products/${owneruid}/${ids[index]}/image";
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<DatabaseEvent>(
+              stream: databaseReference!.onValue,
+              builder: (context, snapshot) {
+                if (snapshot.hasData && !snapshot.hasError && snapshot.data!.snapshot.value != null) {
+                  Map<String, dynamic> productsMap = snapshot.data!.snapshot.value as Map<String, dynamic>;
+                  List<dynamic> products = productsMap.values.toList();
+                  List<String> ids = productsMap.keys.toList();
 
+                  List<dynamic> filteredProducts = productsMap.entries
+                      .where((entry) =>
+                  (_selectedCategories.isEmpty || _selectedCategories.contains(entry.value['category'])) &&
+                      (entry.value['name'].toLowerCase().contains(_searchQuery)))
+                      .map((e) => e.value)
+                      .toList();
 
-                return GestureDetector(
-                  onTap: (){
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => EventDetailsPage(startDate: product["date"], title: product["name"], type: product["category"], smallDescription: product["comment"], largeDescription: product["description"], imageurl: product["imageUrl"], uid: ids[index],  owner: owneruid,)),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(6.0),
-                    child: Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch, // Растягиваем содержимое на всю ширину карточки
-                        children: [
-                          Expanded(
-                            child: FutureBuilder<String>(
-                              future: getImageUrl(imageRef),
-                              builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-                                switch (snapshot.connectionState) {
-                                  case ConnectionState.waiting:
-                                    return Center(child: CircularProgressIndicator());
-                                  default:
-                                    if (snapshot.hasError) {
-                                      return Text('Error: ${snapshot.error}');
-                                    } else {
-                                      return Image.network(
-                                        snapshot.data!,
-                                        fit: BoxFit.cover,
-                                      );
-                                    }
-                                }
-                              },
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  return GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: MediaQuery.of(context).size.width >= 1200 ? 5 : 2,
+                      childAspectRatio: 1,
+                    ),
+                    itemCount: filteredProducts.length,
+                    itemBuilder: (context, index) {
+                      var product = filteredProducts[index];
+                      var id = ids[index];
+                      var imageRef = "products/${owneruid}/${ids[index]}/image";
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => EventDetailsPage(startDate: product["date"], title: product["name"], type: product["category"], smallDescription: product["comment"], largeDescription: product["description"], imageurl: product["imageUrl"], uid: ids[index], owner: owneruid,)),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(6.0),
+                          child: Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text(
-                                  product['name'] ?? 'Название не указано',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
+                                Expanded(
+                                  child: FutureBuilder<String>(
+                                    future: getImageUrl(imageRef),
+                                    builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+                                      switch (snapshot.connectionState) {
+                                        case ConnectionState.waiting:
+                                          return Center(child: CircularProgressIndicator());
+                                        default:
+                                          if (snapshot.hasError) {
+                                            return Text('Error: ${snapshot.error}');
+                                          } else {
+                                            return Image.network(
+                                              snapshot.data!,
+                                              fit: BoxFit.cover,
+                                            );
+                                          }
+                                      }
+                                    },
+                                  ),
                                 ),
-                                CheckedButton(isOwner:isowner,owner: owneruid,id:ids[index],counts: product["count"],), // Проверяем isOwner и добавляем CheckedButton, если он равен false
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        product['name'] ?? 'Название не указано',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      CheckedButton(isOwner:isowner, owner: owneruid, id:ids[index], counts: product["count"],),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
+                        ),
+                      );
+                    },
+                  );
+                } else {
+                  return Center(child: Text("No products available", style: TextStyle(fontSize: 20)));
+                }
               },
-            );
-          } else {
-            return Center(child: Text("Нет товаров", style: TextStyle(fontSize: 50),));
-          }
-        },
+            ),
+          ),
+        ],
       ),
+    );
+  }
+  Widget _buildCategoryFilters() {
+    return Wrap(
+      spacing: 8.0,
+      runSpacing: 16.0,
+      children: categories.map((category) => FilterChip(
+        label: Text(category),
+        selected: _selectedCategories.contains(category),
+        onSelected: (bool selected) {
+          setState(() {
+            if (selected) {
+              _selectedCategories.add(category);
+            } else {
+              _selectedCategories.remove(category);
+            }
+          });
+        },
+      )).toList(),
     );
   }
 }
