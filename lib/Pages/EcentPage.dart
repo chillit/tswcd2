@@ -126,29 +126,23 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               StreamBuilder<DatabaseEvent>(
                 stream: databaseReferencee.onValue,
                 builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data != null && snapshot.data=="") {
+                  if (snapshot.hasData && snapshot.data != null) {
                     DataSnapshot dataValues = snapshot.data!.snapshot;
-                    if (dataValues.value != null) {
-                      List<dynamic> events = [];
-                      dynamic data = dataValues.value;
-                      if (data is List) {
-                        events.addAll(data);
-                      } else if (data is Map) {
-                        data.forEach((key, value) {
-                          events.add(value);
-                        });
-                      }
 
+                    // Check if the data is a non-empty string and handle "no alternatives" message.
+                    if (dataValues.value is String && dataValues.value == "") {
+                      return Center(child: Text("Нет альтернатив", style: TextStyle(fontSize: 30)));
+                    }
+
+                    // Proceed if the data is not an empty string and is a Map.
+                    if (dataValues.value is Map<String, dynamic>) {
+                      Map<String, dynamic> dataMap = dataValues.value as Map<String, dynamic>;
+                      List<dynamic> events = dataMap.values.toList();
+                      List<String> ids = dataMap.keys.toList();
 
                       final double screenWidth = MediaQuery.of(context).size.width;
                       final double screenHeight = MediaQuery.of(context).size.height;
-                      int crossAxisCount = 2;
-                      if (screenWidth>screenHeight) {
-                        crossAxisCount = 4;
-                      }
-                      Map<String, dynamic> productsMap = snapshot.data!.snapshot.value as Map<String, dynamic>;
-                      List<dynamic> products = productsMap.values.toList();
-                      List<String> ids = productsMap.keys.toList();
+                      int crossAxisCount = screenWidth > screenHeight ? 4 : 2;
 
                       return Align(
                         alignment: Alignment.center,
@@ -163,11 +157,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                             ),
                             itemCount: events.length,
                             itemBuilder: (BuildContext context, int index) {
-                              var product = products[index];
-                              var id = ids[index];
                               return GestureDetector(
                                 onTap: () {
-
+                                  // Implement tap action.
                                 },
                                 child: Card(
                                   child: Padding(
@@ -175,20 +167,19 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                                     child: Column(
                                       children: <Widget>[
                                         Expanded(
-                                          child: Image.network(
-                                              events[index]['imageUrl']
-                                          )
+                                          child: Image.network(events[index]['imageUrl']),
                                         ),
                                         SizedBox(height: 8.0),
                                         Padding(
                                           padding: const EdgeInsets.all(8.0),
                                           child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
                                               Text(
                                                 events[index]['name'],
                                                 style: TextStyle(fontWeight: FontWeight.bold),
                                               ),
-                                              CheckedButton(owner: widget.owner,id:widget.uid,counts: events[index]["count"],),
+                                              CheckedButton(owner: widget.owner, id:widget.uid, counts: events[index]["count"]),
                                             ],
                                           ),
                                         ),
@@ -204,10 +195,11 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         ),
                       );
                     } else {
+                      // Handle other unexpected data types or empty Maps.
                       return Center(child: Text('Данные не найдены'));
                     }
                   } else {
-                    return Center(child: Text("Нет альтернатив", style: TextStyle(fontSize: 30),));
+                    return Center(child: Text("Ошибка загрузки данных", style: TextStyle(fontSize: 30)));
                   }
                 },
               ),
