@@ -382,6 +382,7 @@ class _resumeState extends State<resume> {
               _comment.clear();
               _discription.clear();
               _dateController.clear();
+              count.clear();
             } else {
               // Обработка неудачной отправки данных
             }
@@ -1043,7 +1044,7 @@ class _resumeState extends State<resume> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 25.0),
                     child: Container(
-                      width:  MediaQuery.of(context).size.width>=500? 500 : double.infinity, // Width adjustment based on the device type.
+                      width:  MediaQuery.of(context).size.width>=600? 500 : double.infinity, // Width adjustment based on the device type.
                       constraints: BoxConstraints(minHeight: 50), // Устанавливаем минимальную высоту для контейнера
                       decoration: BoxDecoration(),
                       child: TextFormField(
@@ -1131,15 +1132,13 @@ class _resumeState extends State<resume> {
                                     width: isDesktop ? 600 : null,
                                     // Adjust the width as needed for desktop layout
                                     child: Row(
-                                      mainAxisAlignment: isDesktop
-                                          ? MainAxisAlignment.center
-                                          : MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         SizedBox(width: isDesktop ? 0 : 25,),
 
                                         Text(
-                                            'Выберите фотографию вашего продукта'),
-                                        SizedBox(width: isDesktop ? 25 : 0),
+                                            'Выберите фотографию'),
+                                        SizedBox(width:  25),
                                         ElevatedButton(
                                           onPressed: _pickFile,
                                           child: Text( isFilePicked

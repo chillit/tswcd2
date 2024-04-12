@@ -67,8 +67,12 @@ class _ProductListState extends State<ProductList> {
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
+    bool isDesktop(BuildContext context) => MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: AppBar(
         actions: [
@@ -83,7 +87,7 @@ class _ProductListState extends State<ProductList> {
                         FirebaseAuth.instance.signOut();
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => Registration()),
+                          MaterialPageRoute(builder: (context) => MyHomePage()),
                         );
                       },
                       icon: Icon(Icons.logout),
@@ -109,7 +113,7 @@ class _ProductListState extends State<ProductList> {
 
             return GridView.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 6, // Количество столбцов
+                crossAxisCount: MediaQuery.of(context).size.width>=1200 ? 5:2, // Количество столбцов
                 childAspectRatio: 1, // Соотношение сторон плитки
               ),
               itemCount: products.length,
@@ -126,46 +130,49 @@ class _ProductListState extends State<ProductList> {
                       MaterialPageRoute(builder: (context) => EventDetailsPage(startDate: product["date"], title: product["name"], type: product["category"], smallDescription: product["comment"], largeDescription: product["description"], imageurl: product["imageUrl"], uid: ids[index],  owner: owneruid,)),
                     );
                   },
-                  child: Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch, // Растягиваем содержимое на всю ширину карточки
-                      children: [
-                        Expanded(
-                          child: FutureBuilder<String>(
-                            future: getImageUrl(imageRef),
-                            builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-                              switch (snapshot.connectionState) {
-                                case ConnectionState.waiting:
-                                  return Center(child: CircularProgressIndicator());
-                                default:
-                                  if (snapshot.hasError) {
-                                    return Text('Error: ${snapshot.error}');
-                                  } else {
-                                    return Image.network(
-                                      snapshot.data!,
-                                      fit: BoxFit.cover,
-                                    );
-                                  }
-                              }
-                            },
+                  child: Padding(
+                    padding: const EdgeInsets.all(6.0),
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch, // Растягиваем содержимое на всю ширину карточки
+                        children: [
+                          Expanded(
+                            child: FutureBuilder<String>(
+                              future: getImageUrl(imageRef),
+                              builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+                                switch (snapshot.connectionState) {
+                                  case ConnectionState.waiting:
+                                    return Center(child: CircularProgressIndicator());
+                                  default:
+                                    if (snapshot.hasError) {
+                                      return Text('Error: ${snapshot.error}');
+                                    } else {
+                                      return Image.network(
+                                        snapshot.data!,
+                                        fit: BoxFit.cover,
+                                      );
+                                    }
+                                }
+                              },
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                product['name'] ?? 'Название не указано',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              CheckedButton(owner: owneruid,id:ids[index],counts: product["count"],), // Проверяем isOwner и добавляем CheckedButton, если он равен false
-                            ],
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  product['name'] ?? 'Название не указано',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                CheckedButton(isOwner:isowner,owner: owneruid,id:ids[index],counts: product["count"],), // Проверяем isOwner и добавляем CheckedButton, если он равен false
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -182,16 +189,19 @@ class _ProductListState extends State<ProductList> {
 
 
 class CheckedButton extends StatefulWidget {
-  String owner;
-  String id;
+  final  String owner;
+  final String id;
   int counts;
-  CheckedButton({required this.owner,required this.id,required this.counts});
+  final bool isOwner;
+  CheckedButton({required this.owner,required this.id,required this.counts,required this.isOwner});
   @override
   _CheckedButtonState createState() => _CheckedButtonState();
 }
 
 class _CheckedButtonState extends State<CheckedButton> {
   DatabaseReference? databaseReference = FirebaseDatabase.instance.ref();
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -200,7 +210,7 @@ class _CheckedButtonState extends State<CheckedButton> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            IconButton(
+            widget.isOwner?IconButton(
               onPressed: () {
                 setState(() {
                   widget.counts++;
@@ -208,7 +218,7 @@ class _CheckedButtonState extends State<CheckedButton> {
                 });
               },
               icon: Icon(Icons.add),
-            ),
+            ): SizedBox(height: 0,),
             Text(
               widget.counts.toString(),
               style: TextStyle(fontSize: 20),
@@ -230,6 +240,7 @@ class _CheckedButtonState extends State<CheckedButton> {
             ),
           ],
         ),
+        SizedBox(width: 5,),
         InkWell(
           onTap: () {
             setState(() {
@@ -238,7 +249,7 @@ class _CheckedButtonState extends State<CheckedButton> {
             });
           },
           child: Container(
-            padding: EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(4.0),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -247,8 +258,8 @@ class _CheckedButtonState extends State<CheckedButton> {
               ),
             ),
             child: Icon(
-              Icons.check_box_outline_blank,
-              color: Colors.grey,
+              Icons.done_all,
+              color: Colors.black,
               size: 20.0,
             ),
           ),
