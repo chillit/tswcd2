@@ -40,7 +40,7 @@ dependencies:
   cloud_firestore: any
   cloud_functions: ^4.3.3
   table_calendar: any
-  awesome_dialog: any
+  awesome_dialog: ^3.2.0
   file_picker: ^8.0.0+1
   firebase_storage: any
   rxdart: ^0.27.7

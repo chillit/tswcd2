@@ -132,7 +132,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => resume()),
+        MaterialPageRoute(builder: (context) => resume(from: false,)),
       );
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
