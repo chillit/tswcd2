@@ -773,6 +773,7 @@ class _resumeState extends State<resume> {
                                     } else {
                                       tileContent = ListTile(
                                         title: Text(snapshot.data!.name ?? "Никнейм не найден"),
+                                        subtitle: Text(snapshot.data!.email ?? ""),
                                         onTap: () {
                                           showDialog(
                                             context: context,
