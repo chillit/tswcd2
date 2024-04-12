@@ -15,6 +15,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:tswcd/Pages/Registration_page.dart';
+import 'package:tswcd/main.dart';
 class resume extends StatefulWidget {
 
   resume({super.key});
@@ -562,37 +563,26 @@ class _resumeState extends State<resume> {
 
           key: _scaffoldKey,
           appBar: AppBar(
+            automaticallyImplyLeading: false,
+            leading: IconButton(
+              onPressed: () {
+                FirebaseAuth.instance.signOut();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => MyHomePage()),
+                );
+              },
+              icon: Icon(Icons.logout),
+            ),
             actions: [
-              Row(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(left: 20),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            FirebaseAuth.instance.signOut();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => Registration()),
-                            );
-                          },
-                          icon: Icon(Icons.logout),
-                        ),
-                        SizedBox(width: 10),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      _fetchUsers();
-                      _scaffoldKey.currentState?.openEndDrawer();
-                      print(isowner);
-                    },
-                    icon: Icon(Icons.menu),
-                  ),
-                ],
+              IconButton(
+                onPressed: () {
+                  _fetchUsers();
+                  _scaffoldKey.currentState?.openEndDrawer();
+                  print(isowner);
+                },
+                icon: Icon(Icons.menu),
               )
             ],
           ),
@@ -600,41 +590,132 @@ class _resumeState extends State<resume> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                DrawerHeader(
-                  child: Text('Sidebar'),
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                  ),
-                ),
+
                 Column(
                   children: <Widget>[
-                    Autocomplete<String>(
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        textedit = textEditingValue.text;
-                        if (textEditingValue.text == '') {
-                          textedit = textEditingValue.text;
-                          return const Iterable<String>.empty();
-                        }
-                        return allusers.where((String option) {
-                          return option.toLowerCase().contains(
-                              textEditingValue.text.toLowerCase());
-                        }).toSet().toList();
-                      },
-                      onSelected: (String selection) {
-                        selectedemail = selection;
-                        textedit = selection;
-                      },
+                    SizedBox(height: 30,),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsetsDirectional.only(start: 10, end: 10),
+                          child: Text("Добавление члена семьи"),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                        onPressed: () {
-                          String emailToUse = selectedemail.isEmpty
-                              ? textedit
-                              : selectedemail;
-                          if (emailToUse.isNotEmpty) {
-                            _addCurrentUserToSelectedUserNotis(emailToUse);
-                          }
-                        },
-                        icon: Icon(Icons.add)),
+                    SizedBox(height: 10,),
+
+
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 15),
+                          child: Text("Введите почту пользователя"),
+                        ),
+                        SizedBox(height: 8,),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 15),
+                          child: Container(
+                            height: 30,
+                            decoration: BoxDecoration(
+                              border: Border.all(),
+
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10,vertical: 3),
+                              child: Autocomplete<String>(
+                                optionsBuilder: (TextEditingValue textEditingValue) {
+                                  textedit = textEditingValue.text;
+                                  if (textEditingValue.text == '') {
+                                    textedit = textEditingValue.text;
+                                    return const Iterable<String>.empty();
+                                  }
+                                  return allusers.where((String option) {
+                                    return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                                  }).toSet().toList();
+                                },
+                                onSelected: (String selection) {
+                                  selectedemail = selection;
+                                  textedit = selection;
+                                },
+                                fieldViewBuilder: (
+                                    BuildContext context,
+                                    TextEditingController fieldTextEditingController,
+                                    FocusNode fieldFocusNode,
+                                    VoidCallback onFieldSubmitted
+                                    ) {
+                                  return TextField(
+                                    controller: fieldTextEditingController,
+                                    focusNode: fieldFocusNode,
+                                    onSubmitted: (String value) => onFieldSubmitted(),
+                                    decoration: InputDecoration(
+
+                                      border: InputBorder.none, // Убираем подчеркивание
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 25,),
+                    ElevatedButton(
+                      onPressed: () {
+                        String emailToUse = selectedemail.isEmpty ? textedit : selectedemail;
+                        if (emailToUse.isNotEmpty) {
+                          _addCurrentUserToSelectedUserNotis(emailToUse);
+                        }
+                      },
+                      child: Text("Отправить запрос"),
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8), // Скругление углов
+                          side: BorderSide(
+                            color: Colors.black54, // Цвет границы
+                            width: 1, // Толщина границы
+                          ),
+                        ),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Добавление отступов
+                        elevation: 5, // Поднятие кнопки для создания теневого эффекта
+                      ),
+                    ),
+                    SizedBox(height: 30,),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsetsDirectional.only(start: 10, end: 10),
+                          child: Text("Ваша семья"),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10,),
                     Container(
                       height: 400,
                       child: StreamBuilder<DatabaseEvent>(
@@ -657,56 +738,58 @@ class _resumeState extends State<resume> {
                               itemBuilder: (context, index) {
                                 return FutureBuilder<UserNotification>(
                                   future: getUserNameeByUid(uids[index]),
-                                  builder: (BuildContext context,
-                                      AsyncSnapshot<UserNotification> snapshot) {
-                                    if (snapshot.connectionState ==
-                                        ConnectionState.waiting) {
-                                      return ListTile(
-                                        title: Text("Загрузка..."),
+                                  builder: (BuildContext context, AsyncSnapshot<UserNotification> snapshot) {
+                                    Widget tileContent;
+                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                      tileContent = ListTile(
+                                        title: Center(child: Text("Загрузка...")),
                                       );
                                     } else if (snapshot.hasError) {
-                                      return ListTile(
-                                        title: Text(
-                                            "Ошибка: ${snapshot.error}"),
+                                      tileContent = ListTile(
+                                        title: Text("Ошибка: ${snapshot.error}"),
                                       );
                                     } else {
-                                      return ListTile(
-                                        title: Text(snapshot.data!.name ??
-                                            "Никнейм не найден",),
-                                        subtitle: Text(snapshot.data!.email ?? ""),
+                                      tileContent = ListTile(
+                                        title: Text(snapshot.data!.name ?? "Никнейм не найден"),
                                         onTap: () {
                                           showDialog(
                                             context: context,
                                             builder: (BuildContext context) {
                                               return AlertDialog(
-                                                title: Text(
-                                                    'Удалить пользователя?'),
-                                                content: Text(
-                                                    'Вы уверены, что хотите удалить этого пользователя?'),
+                                                title: Text('Удалить пользователя?'),
+                                                content: Text('Вы уверены, что хотите удалить этого пользователя?'),
                                                 actions: <Widget>[
                                                   TextButton(
                                                     child: Text('Отмена'),
                                                     onPressed: () {
-                                                      Navigator.of(context)
-                                                          .pop();
+                                                      Navigator.of(context).pop();
                                                     },
                                                   ),
                                                   TextButton(
                                                     child: Text('Удалить'),
                                                     onPressed: () {
-                                                      removeUserOwner(
-                                                          uids[index]).then((
-                                                          _) =>
-                                                          Navigator.of(context)
-                                                              .pop());
+                                                      removeUserOwner(uids[index]).then((_) => Navigator.of(context).pop());
                                                     },
                                                   ),
                                                 ],
                                               );
-                                            },);
+                                            },
+                                          );
                                         },
                                       );
                                     }
+
+                                    return Container(
+                                      margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5), // Отступы вокруг контейнера
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: Colors.grey, // Цвет границы
+                                          width: 1, // Толщина границы
+                                        ),
+                                        borderRadius: BorderRadius.circular(8), // Скругление углов границы
+                                      ),
+                                      child: tileContent,
+                                    );
                                   },
                                 );
                               },
@@ -724,8 +807,29 @@ class _resumeState extends State<resume> {
           ) : Drawer(
             child: Column(
               children: [
+                SizedBox(height: 20,),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Divider(
+                        thickness: 0.5,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsetsDirectional.only(start: 10, end: 10),
+                      child: Text("Приглашения в семью"),
+                    ),
+                    Expanded(
+                      child: Divider(
+                        thickness: 0.5,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
                 Container(
-                  height: 700,
+                  height: MediaQuery.of(context).size.height*0.7,
                   child: StreamBuilder<List<UserNotification>>(
                     stream: userNotisSubject.stream,
                     builder: (BuildContext context,
@@ -736,7 +840,7 @@ class _resumeState extends State<resume> {
                         return Text('Error: ${snapshot.error}');
                       } else
                       if (snapshot.data == null || snapshot.data!.isEmpty) {
-                        return Text('No data');
+                        return Text('Нет приглашений');
                       } else {
                         return ListView.builder(
                           itemCount: snapshot.data!.length,
@@ -754,6 +858,7 @@ class _resumeState extends State<resume> {
                                       acceptUser(userNoti.uid);
                                     },
                                   ),
+                                  SizedBox(width: 5,),
                                   IconButton(
                                     icon: Icon(Icons.close),
                                     onPressed: () {
@@ -785,20 +890,17 @@ class _resumeState extends State<resume> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
 
-
                       const SizedBox(height: 0),
 
                       Container(
                         width: MediaQuery
                             .of(context)
                             .size
-                            .width
-                            .clamp(0, 400),
+                            .width>=400?400:MediaQuery.of(context).size.width *0.7,
                         height: MediaQuery
                             .of(context)
                             .size
-                            .width
-                            .clamp(0, 400),
+                            .width>=400?400:MediaQuery.of(context).size.width *0.7,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(67),
                           image: DecorationImage(
@@ -937,13 +1039,45 @@ class _resumeState extends State<resume> {
                               needToValidate: false,
 
                             ),
-                            MyTextField(
-                              controller: count,
-                              hintText: 'Описание',
-                              obscureText: false,
-                              needToValidate: true,
-
-                            ),
+                            SizedBox(height: 25,),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                    child: Container(
+                      width:  MediaQuery.of(context).size.width>=500? 500 : double.infinity, // Width adjustment based on the device type.
+                      constraints: BoxConstraints(minHeight: 50), // Устанавливаем минимальную высоту для контейнера
+                      decoration: BoxDecoration(),
+                      child: TextFormField(
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*$'))],
+                        validator: true
+                            ? (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Это поле обязательно!!'; // Возвращает пустую строку вместо текста ошибки
+                          }
+                          return null;
+                        }
+                            : null,
+                        controller: count,
+                        obscureText: false,
+                        decoration: InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(vertical: 10.0).copyWith(left: 10.0), // Настройка внутренних отступов
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black,width: 1),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.red, width: 2),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 2),
+                          ),
+                          fillColor: Colors.grey.shade200,
+                          filled: true,
+                          hintText: 'Введите кол-во проудкта',
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          errorStyle: TextStyle(height: 0, color: Colors.red), // Скрываем текст ошибки
+                        ),
+                      ),
+                    ),
+                  ),
                             SizedBox(height: 25,),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: 25.0),
@@ -1008,12 +1142,12 @@ class _resumeState extends State<resume> {
                                         SizedBox(width: isDesktop ? 25 : 0),
                                         ElevatedButton(
                                           onPressed: _pickFile,
-                                          child: Text(fileName == null
-                                              ? 'Файл не выбран'
-                                              : "Файл выбран", style:
+                                          child: Text( isFilePicked
+                                              ? 'Файл выбран'
+                                              : "Файл не выбран", style:
                                           TextStyle(color: isFilePicked
                                               ? Colors.green
-                                              : Colors.purple),),
+                                              : Colors.purple)),
                                         ),
                                         SizedBox(width: isDesktop ? 0 : 25,),
                                       ],
@@ -1023,36 +1157,51 @@ class _resumeState extends State<resume> {
                               },
                             ),
                             SizedBox(height: 20),
-                            Switch(
-                              value: isalter,
-                              onChanged: (value) {
-                                setState(() {
-                                  isalter = value;
-                                });
-                              },
-                              activeTrackColor: Colors.lightGreenAccent,
-                              activeColor: Colors.green,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('Есть ли этому товару альтернатива?'),
+                                SizedBox(width: 5,),
+                                Switch(
+                                  value: isalter,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isalter = value;
+                                    });
+                                  },
+                                  activeTrackColor: Colors.lightGreenAccent,
+                                  activeColor: Colors.green,
+                                ),
+                              ],
                             ),
-                            isalter?DropdownButton<Product>(
-                              value: selectedowner,
-                              onChanged: (Product? newValue) {
-                                setState(() {
-                                  selectedowner = newValue;
-                                });
-                              },
-                              items: products.map<DropdownMenuItem<Product>>((Product product) {
-                                return DropdownMenuItem<Product>(
-                                  value: product,
-                                  child: Row(
-                                    children: <Widget>[
-                                      Image.network(product.imageUrl, width: 50, height: 50),
-                                      SizedBox(width: 10),
-                                      Text(product.name),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            ):SizedBox(),
+                            SizedBox(height: isalter?15:0),
+                            isalter?Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.black, width: 1.0), // Add border decoration
+                                borderRadius: BorderRadius.circular(5.0), // Optional: Add border radius for rounded corners
+                              ),
+                              child: DropdownButton<Product>(
+                                value: selectedowner,
+                                onChanged: (Product? newValue) {
+                                  setState(() {
+                                    selectedowner = newValue;
+                                  });
+                                },
+                                items: products.map<DropdownMenuItem<Product>>((Product product) {
+                                  return DropdownMenuItem<Product>(
+                                    value: product,
+                                    child: Row(
+                                      children: <Widget>[
+                                        Image.network(product.imageUrl, width: 50, height: 50),
+                                        SizedBox(width: 10),
+                                        Text(product.name),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            )
+                                :SizedBox(),
                           ],
                         ),
                       ),

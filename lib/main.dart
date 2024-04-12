@@ -135,6 +135,10 @@ class _MyHomePageState extends State<MyHomePage> {
         MaterialPageRoute(builder: (context) => resume()),
       );
     } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+              'Проверьте, пожалуйста, проверьте правильно ли вы ввели данные!'))
+      );
       print(e.code);
       String errorMessage;
 
