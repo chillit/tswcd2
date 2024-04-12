@@ -45,9 +45,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDesktop = MediaQuery.of(context).size.width > 900;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Мероприятия'),
+        title: Text(widget.title),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -88,9 +89,17 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                       ],
                     ),
                   ),
-                  Image.network(widget.imageurl)
+                  isDesktop?Container(
+                      width: MediaQuery.of(context).size.width*0.6,
+                      height:  400,
+                      child: Image.network(widget.imageurl)):SizedBox(height: 0,)
                 ],
               ),
+              !isDesktop?SizedBox(height: 30,):SizedBox(height: 0,),
+              !isDesktop?Container(
+                  width: MediaQuery.of(context).size.width*0.6,
+                  height: MediaQuery.of(context).size.width*0.6,
+                  child: Image.network(widget.imageurl)):SizedBox(height: 0,),
 
               SizedBox(height: 30),
               Row(
@@ -103,7 +112,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   ),
                 ),
                   SizedBox(width: 6,),
-                Text('альтернативы',style: TextStyle(color: Colors.black),),
+                Text('Aльтернативы',style: TextStyle(color: Colors.black,fontSize: 24),),
                   SizedBox(width: 6,),
                 Expanded(
                   child: Divider(

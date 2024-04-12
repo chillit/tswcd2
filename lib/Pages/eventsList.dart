@@ -68,7 +68,7 @@ class _ProductListState extends State<ProductList> {
   List<String> _selectedCategories = [];
   List<String> categories = [
     'Мясные продукты', 'Овощи', 'Фрукты и ягоды', 'Молочные продукты', 'Бакалея',
-    'Напитки', 'Выпечка и сладости', 'консервированные продукты', 'Специи и приправы'
+    'Напитки', 'Выпечка и сладости', 'Консервированные продукты', 'Специи и приправы'
   ];
 
   void initState() {
@@ -605,7 +605,7 @@ class _ProductListState extends State<ProductList> {
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               decoration: InputDecoration(
-                labelText: 'Search by product name',
+                labelText: 'Поиск',
                 border: OutlineInputBorder(),
                 suffixIcon: Icon(Icons.search),
               ),
